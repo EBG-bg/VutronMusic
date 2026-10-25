@@ -4,6 +4,10 @@ Vutron Music - Mobile 是 [VutronMusic](https://github.com/stark81/VutronMusic) 
 
 移动端由 EBG-bg 维护，基于 Vue 3、TypeScript、Pinia 和 Capacitor，复用上游图标、主题和共享组件。原桌面项目介绍见 [README.upstream.md](README.upstream.md)，原许可证见 [LICENSE](LICENSE)。
 
+# 用前须知
+本移植为纯vibe-coding项目，移植代码by 6.1sol 检查与建议by deepseek v4.1 1017 ＆ 6.1sol ＆ 我自己
+因本人为学生，所以大部分优化/issue/pr/.....会在周末/假期处理和更新
+
 ## 功能
 
 | 功能 | 说明 |
