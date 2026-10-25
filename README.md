@@ -1,24 +1,33 @@
-﻿# Vutron Music - Mobile
+# Vutron Music - Mobile
 
-VutronMusic 的 Android 移植 fork，基于 Vue 3、TypeScript、Pinia 和 Capacitor，复用上游图标、主题、共享歌词/封面逻辑以及共享按钮组件。当前版本：**1.0.0**。
+Vutron Music - Mobile 是 [VutronMusic](https://github.com/stark81/VutronMusic) 的 Android 移植版，支持在线歌单、本地音乐、离线缓存与桌面歌词。当前版本：**1.0.0**，主要适配 Android 13 / HyperOS 的 ARM64 设备。
 
-上游：[stark81/VutronMusic](https://github.com/stark81/VutronMusic)。Mobile fork 由 EBG-bg 维护，与上游作者及音乐平台不存在官方隶属或背书关系。原桌面介绍保存在 [README.upstream.md](README.upstream.md)，原许可证保存在 [LICENSE](LICENSE)。
+移动端由 EBG-bg 维护，基于 Vue 3、TypeScript、Pinia 和 Capacitor，复用上游图标、主题和共享组件。原桌面项目介绍见 [README.upstream.md](README.upstream.md)，原许可证见 [LICENSE](LICENSE)。
 
 ## 功能
 
-- 网易云音乐二维码/Cookie 登录、首页推荐、搜索和歌单播放。
-- 本地文件夹、电脑本地歌单导入，以及歌曲/歌单/封面离线缓存。
-- 播放队列、下一首插队、歌曲与歌单独立音量、重启恢复进度及睡眠定时。
-- 原文/译文同步歌词、可选估算逐字、逐曲延迟微调、桌面悬浮歌词与调色。
-- 直接复用原版 SVG、主题，以及桌面/手机共用的 ButtonIcon、SideNavItem。
+| 功能 | 说明 |
+| --- | --- |
+| 在线音乐 | 网易云音乐二维码/Cookie 登录、首页推荐、搜索和歌单播放。 |
+| 本地音乐 | 选择音乐文件夹，识别本地音频，并支持导入电脑本地歌单。 |
+| 离线缓存 | 缓存歌曲、歌单信息和封面，可配置缓存占用。 |
+| 播放队列 | 查看队列、追加歌曲、将歌曲插入下一首播放。 |
+| 播放设置 | 保存歌曲与歌单音量、重启恢复播放进度、睡眠定时。 |
+| 应用内歌词 | 原文与译文同步滚动、逐曲延迟微调，以及可选的估算逐字显示。 |
+| 桌面歌词 | 悬浮歌词、颜色自定义、透明度和阴影设置。 |
+| 歌单布局 | 支持列表与卡片布局，可调整每排卡片数量。 |
+
+估算逐字显示由程序根据歌词时间计算，不等同于来源提供的精确逐字时间。
 
 各来源播放能力取决于该来源的可用性及用户拥有的权限。本项目不附带账号、Cookie、音乐文件或平台授权，也不承诺提供受限内容。
 
-## 安装与范围
+## 下载与安装
 
-从本 fork 的 Releases 获取 `Vutron-Music-Mobile-1.0.0-arm64.apk`。当前只提供 ARM64；开发验收设备为 Mi 10 / Android 13 / HyperOS，其他设备仍需验证。1.0.0 源于已由维护者试用的 0.3.10，主要变化为公开名称/版本与发布资料。个人测试包、签名私钥、账号状态和测试记录不上传。
+打开 [1.0.0 下载页](https://github.com/EBG-bg/VutronMusic/releases/tag/mobile-v1.0.0)，下载并安装 `Vutron-Music-Mobile-1.0.0-arm64.apk`。同页的 `.sha256` 文件用于核对安装包完整性，`Source code` 为开发源码，不是安装包。
 
-为保持本地测试版覆盖升级与数据兼容，内部 applicationId 仍为 `io.github.vutronmusic.personal.webshell`；它不会在应用内显示个人版名称。运行中的媒体服务、缓存和桌面歌词行为沿用测试版。
+安装后可使用二维码或 Cookie 登录网易云音乐，也可选择本地音乐文件夹。使用桌面歌词时，需要在系统中授予应用悬浮窗权限。
+
+当前仅提供 ARM64 安装包，主要适配设备为 Mi 10 / Android 13 / HyperOS。其他 Android 版本和设备的兼容情况仍需确认。
 
 ## 构建
 
@@ -45,8 +54,6 @@ sh scripts/build-mobile.sh Debug
 - `packages/ui`：从上游抽取并被桌面/Android 实际共用的控件。
 - `android/shared`：网络与本机会话适配。
 - `vendor/android-runtime`：经过验证的音源、匹配与音质运行时。
-
-完整桌面页面尚未全部迁成共享组件。现有构建与定向测试不代表所有手机、平台接口或后台情形都已验证。
 
 ## 隐私、许可与使用
 

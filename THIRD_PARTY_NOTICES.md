@@ -30,4 +30,4 @@ The upstream README says personal study/research and no commercial or unlawful u
 
 ## Distribution contents
 
-Recipients of the public APK must also receive the full notices. The build includes `legal/` under APK assets alongside `LICENSE`, `NOTICE` and this file. Existing runtime license files remain in `assets/sources-runtime/` and individual matcher package paths. The public source and matching release tag provide the build/adaptation materials described in [legal/REDISTRIBUTION.md](legal/REDISTRIBUTION.md). Personal test APKs, sessions, exported music and device diagnostics are not part of the public release.
+Recipients of the public APK must also receive the full notices. The build includes `legal/` under APK assets alongside `LICENSE`, `NOTICE` and this file. Existing runtime license files remain in `assets/sources-runtime/` and individual matcher package paths. The public source and matching release tag provide the build/adaptation materials described in [legal/REDISTRIBUTION.md](legal/REDISTRIBUTION.md). Account sessions, exported music and device diagnostics are not release assets.
