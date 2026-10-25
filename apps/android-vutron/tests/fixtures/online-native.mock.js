@@ -1,6 +1,6 @@
 // Browser-only deterministic replacement, loaded solely by browser-online.cjs.
 export const onlineTestBackend = {
-  playlists:[{id:42,name:'Own',creatorUserId:7,tags:['流行'],description:'Before',privacy:0,trackCount:1},{id:99,name:'Other',creatorUserId:8,subscribed:true,privacy:0,trackCount:0}],
+  playlists:[{id:42,name:'Own',creatorUserId:7,tags:['流行'],description:'Before',privacy:0,trackCount:1},{id:99,name:'Other',creatorUserId:8,subscribed:true,privacy:0,trackCount:0},{id:5,name:'Liked',creatorUserId:7,specialType:5,trackCount:1}],
   tracks:[{id:2,name:'Song',artists:['Singer'],playlistVolumeKey:'netease:42'}],likedIds:[2],writes:[]
 }
 const backend=onlineTestBackend

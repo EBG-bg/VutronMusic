@@ -74,4 +74,22 @@ public class NeteaseLibraryApiTest {
         try { api.createPlaylist("Test",0); fail(); } catch(IOException expected) { }
         try { api.changePlaylistTrack(42,3,false); fail(); } catch(IOException expected) { }
     }
+    @Test public void defaultLikedPlaylistRejectsEditDeleteAddAndRemoveBeforeAnyWrite() throws Exception {
+        for (int operation=0; operation<4; operation++) {
+            List<String> paths = new ArrayList<>();
+            NeteaseApi api = new NeteaseApi("", () -> true, (path,data,weapi) -> {
+                paths.add(path);
+                if(path.equals("/api/w/nuser/account/get")) return profile();
+                assertEquals("/api/v6/playlist/detail",path);
+                return value("{\"code\":200,\"playlist\":{\"id\":42,\"specialType\":5,\"creator\":{\"userId\":7}}}");
+            });
+            try {
+                if(operation==0) api.editPlaylist(42,"Name","",new JSONArray());
+                else if(operation==1) api.deletePlaylist(42);
+                else api.changePlaylistTrack(42,3,operation==2);
+                fail();
+            } catch(IOException expected) { assertTrue(expected.getMessage().contains("喜欢")); }
+            assertEquals(Arrays.asList("/api/w/nuser/account/get","/api/v6/playlist/detail"),paths);
+        }
+    }
 }

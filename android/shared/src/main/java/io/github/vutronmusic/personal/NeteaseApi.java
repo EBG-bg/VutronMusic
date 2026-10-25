@@ -220,12 +220,12 @@ public final class NeteaseApi {
         long userId = verifiedUserId > 0 ? verifiedUserId : profile().optLong("userId");
         JSONObject playlist = playlistDetail(playlistId), creator = playlist.optJSONObject("creator");
         if (creator == null || userId <= 0 || creator.optLong("userId") != userId) throw new IOException("只能管理自己的歌单");
+        if (playlist.optInt("specialType") == 5) throw new IOException("默认喜欢歌单请使用歌曲的“喜欢／取消喜欢”管理");
         return playlist;
     }
 
     public void deletePlaylist(long playlistId) throws IOException {
-        JSONObject playlist = ownPlaylist(playlistId);
-        if (playlist.optInt("specialType") == 5) throw new IOException("不能删除默认的喜欢歌单");
+        ownPlaylist(playlistId);
         requireSuccess(request("/api/playlist/remove", json("ids", new JSONArray().put(playlistId).toString()), true), "删除歌单");
     }
 

@@ -25,6 +25,36 @@ test('online identity and own-playlist permissions do not infer ownership or loc
     assert.equal(s.api.removableOnlinePlaylist(song).id, 42)
   } finally { s.scope.stop() }
 })
+test('default liked playlist is browsable but excluded from every ordinary management entry', async () => {
+  const writes = [], favorite = { id: 5, name: 'Liked', creatorUserId: 7, specialType: 5 }
+  const s = setup({ manageNeteaseLibrary: async request => { writes.push(request); return snapshot() } }); try {
+    s.playlists.value.push(favorite); s.selectedPlaylist.value = favorite
+    const likedSong = { ...song, playlistVolumeKey: 'netease:5' }; s.tracks.value = [likedSong]
+    assert.deepEqual(Array.from(s.api.ownedPlaylists.value, row => row.id), [42])
+    assert.equal(s.api.canManageOnlinePlaylist(favorite), false)
+    assert.equal(s.api.removableOnlinePlaylist(likedSong), undefined)
+    s.api.openOnlinePlaylistMore(favorite); s.api.openEditOnlinePlaylist(favorite)
+    assert.equal(s.api.onlinePlaylistDialog.value, undefined)
+    s.api.openAddToOnlinePlaylist(likedSong)
+    assert.equal(await s.api.addTrackToOnlinePlaylist(favorite), false)
+    assert.equal(await s.api.deleteOnlinePlaylist(favorite), false)
+    assert.equal(await s.api.removeTrackFromOnlinePlaylist(likedSong), false)
+    assert.equal(writes.length, 0); assert.equal(s.questions.length, 0)
+    await s.api.loadLikedTracks(); assert.equal(await s.api.toggleTrackLike(likedSong), true)
+    assert.equal(writes.length, 1); assert.equal(writes[0].action, 'like')
+  } finally { s.scope.stop() }
+})
+
+test('a failed like still resynchronizes the selected default playlist detail', async () => {
+  const favorite = { id: 5, name: 'Liked', creatorUserId: 7, specialType: 5 }, reads = []
+  const s = setup({ manageNeteaseLibrary: async () => { throw new Error('uncertain like') }, getOnlineLibrary: async options => { reads.push(options.playlistId); return snapshot({ playlists: [own, favorite], playlist: favorite }) } }); try {
+    s.selectedPlaylist.value = favorite; s.playlists.value.push(favorite)
+    await s.api.loadLikedTracks(); assert.equal(await s.api.toggleTrackLike(song), false)
+    assert.equal(await s.api.refreshOnlineLibrary(), true)
+    assert.deepEqual(reads, [undefined, 5]); assert.equal(s.api.onlineNeedsRefresh.value, false)
+  } finally { s.scope.stop() }
+})
+
 test('liked status is unknown until likelist returns and ignores a song/detail liked flag', async () => {
   const s = setup({ getLikedTrackIds: async () => ({ userId: 7, likedIds: [9] }) }); try {
     assert.equal(s.api.likedLoaded.value, false); await s.api.loadLikedTracks()

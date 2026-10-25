@@ -40,8 +40,11 @@ export function createNeteaseLibrary(options: Options) {
     onlineNeedsRefresh.value = false; pendingCommitted = undefined; onlinePlaylistDialog.value = undefined; onlineOperationNotice.value = ''
   }, { flush: 'sync' })
 
-  function canManageOnlinePlaylist(playlist: VutronPlaylist | undefined): boolean {
+  function isOwnedOnlinePlaylist(playlist: VutronPlaylist | undefined): boolean {
     return Boolean(options.onlineAvailable.value && options.profile.value?.userId && playlist?.creatorUserId === options.profile.value.userId)
+  }
+  function canManageOnlinePlaylist(playlist: VutronPlaylist | undefined): boolean {
+    return isOwnedOnlinePlaylist(playlist) && playlist?.specialType !== 5
   }
   function isTrackLiked(track: VutronTrack) { return likedLoaded.value && liked.value.has(onlineTrackId(track)) }
   function removableOnlinePlaylist(track: VutronTrack) {
@@ -89,7 +92,7 @@ export function createNeteaseLibrary(options: Options) {
       let result = await vutronPlugin.getOnlineLibrary({ playlistId: uncertain ? undefined : playlistId })
       if (!sameAccount(token, uid) || result.userId !== uid) return false
       const selected = options.selectedPlaylist.value
-      if (uncertain && selected && canManageOnlinePlaylist(selected)) {
+      if (uncertain && selected && isOwnedOnlinePlaylist(selected)) {
         if (result.playlists?.some(item => item.id === selected.id)) result = await vutronPlugin.getOnlineLibrary({ playlistId: selected.id })
         else result = { ...result, deletedPlaylistId: selected.id }
         if (!sameAccount(token, uid) || result.userId !== uid) return false
@@ -150,7 +153,7 @@ export function createNeteaseLibrary(options: Options) {
     return mutate({ action: 'add', playlistId: playlist.id, trackId: onlineTrackId(dialog.track) })
   }
   async function deleteOnlinePlaylist(playlist: VutronPlaylist) {
-    if (!canManageOnlinePlaylist(playlist) || playlist.specialType === 5 || confirmationPending || onlineMutationBusy.value) return false
+    if (!canManageOnlinePlaylist(playlist) || confirmationPending || onlineMutationBusy.value) return false
     const token = generation, uid = options.profile.value!.userId
     confirmationPending = true
     try {
