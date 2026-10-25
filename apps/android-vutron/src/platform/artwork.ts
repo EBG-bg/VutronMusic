@@ -1,10 +1,12 @@
 import { Capacitor } from '@capacitor/core'
 import { artworkRequestUrl } from '@vutronmusic/core/artwork'
 import { vutronPlugin } from './vutronPlugin'
+import { localOnlyMode, isRemoteMusicUri } from './localOnlyMode'
 
 const pending = new Map<string, Promise<string>>()
 
 export function displayArtworkUri(uri: string): string {
+  if (localOnlyMode.value && isRemoteMusicUri(uri)) return ''
   if (uri.startsWith('file://') || uri.startsWith('content://') || uri.startsWith('/')) return Capacitor.convertFileSrc(uri)
   return artworkRequestUrl(uri) || uri
 }

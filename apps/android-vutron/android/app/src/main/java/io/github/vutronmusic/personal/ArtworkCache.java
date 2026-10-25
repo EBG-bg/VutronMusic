@@ -31,6 +31,7 @@ final class ArtworkCache {
     private static final long DEFAULT_CAPACITY_MB = 128;
     private static final Map<String, List<Result>> PENDING = new HashMap<>();
     private static final Object PENDING_LOCK = new Object();
+    private static final java.util.Set<HttpURLConnection> CONNECTIONS = new java.util.HashSet<>();
     private static final ExecutorService WORKER = Executors.newFixedThreadPool(3, r -> {
         Thread thread = new Thread(r, "vutron-artwork-cache");
         thread.setDaemon(true);
@@ -38,6 +39,12 @@ final class ArtworkCache {
     });
 
     private ArtworkCache() { }
+
+    static void cancelNetworkDownloads() {
+        List<HttpURLConnection> active;
+        synchronized (PENDING_LOCK) { active = new ArrayList<>(CONNECTIONS); }
+        for (HttpURLConnection connection : active) connection.disconnect();
+    }
 
     interface Result {
         void success(String uri);
@@ -64,6 +71,10 @@ final class ArtworkCache {
         File cached = cachedFile(context, remoteUrl, url);
         if (cached != null) {
             if (result != null) result.success("file://" + cached.getAbsolutePath());
+            return;
+        }
+        if (LocalOnlyMode.enabled(context)) {
+            if (result != null) result.failure(new IOException("本地模式下没有该封面缓存"));
             return;
         }
         synchronized (PENDING_LOCK) {
@@ -115,7 +126,11 @@ final class ArtworkCache {
         // the first request has not finished yet.  The old raw HTTP CDN URL
         // frequently redirects to a URL that WebView cannot display, which
         // left every first-render playlist card with a broken-image icon.
-        return file != null ? "file://" + file.getAbsolutePath() : url;
+        return resolvedUri(file, url, LocalOnlyMode.enabled(context));
+    }
+
+    static String resolvedUri(File cached, String remoteUrl, boolean localOnly) {
+        return cached != null ? "file://" + cached.getAbsolutePath() : localOnly ? "" : remoteUrl;
     }
 
     static long bytes(Context context) {
@@ -147,6 +162,7 @@ final class ArtworkCache {
         if (!root.isDirectory() && !root.mkdirs() && !root.isDirectory()) throw new IOException("Artwork directory unavailable");
         File target = fileFor(context, urlText);
         if (target.isFile() && target.length() > 0) return "file://" + target.getAbsolutePath();
+        LocalOnlyMode.requireOnline(context);
         URL url = new URL(urlText);
         if (url.getUserInfo() != null) throw new IOException("Artwork URL must not contain credentials");
         HttpURLConnection connection = (HttpURLConnection) url.openConnection();
@@ -156,7 +172,9 @@ final class ArtworkCache {
         connection.setRequestProperty("User-Agent", "Mozilla/5.0 (Linux; Android 13) AppleWebKit/537.36 Chrome/131 Mobile Safari/537.36");
         connection.setRequestProperty("Referer", "https://music.163.com/");
         File part = new File(target.getAbsolutePath() + ".part");
+        synchronized (PENDING_LOCK) { CONNECTIONS.add(connection); }
         try {
+            LocalOnlyMode.requireOnline(context);
             int status = connection.getResponseCode();
             if (status < 200 || status >= 300) throw new IOException("Artwork HTTP " + status);
             int contentLength = connection.getContentLength();
@@ -166,6 +184,7 @@ final class ArtworkCache {
                 int count;
                 int total = 0;
                 while ((count = input.read(buffer)) != -1) {
+                    LocalOnlyMode.requireOnline(context);
                     total += count;
                     if (total > MAX_BYTES) throw new IOException("Artwork too large");
                     output.write(buffer, 0, count);
@@ -180,6 +199,7 @@ final class ArtworkCache {
             return "file://" + target.getAbsolutePath();
         } finally {
             connection.disconnect();
+            synchronized (PENDING_LOCK) { CONNECTIONS.remove(connection); }
             if (part.isFile()) part.delete();
         }
     }

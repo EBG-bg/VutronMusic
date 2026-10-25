@@ -30,11 +30,15 @@ final class LocalLyricSource {
         String source = song.optString("localUri", "");
         if (source.isEmpty()) source = song.optString("localPath", "");
         if (source.isEmpty() || song.optBoolean("cached") || "cache".equals(song.optString("source"))) return null;
-        try {
-            String sidecar = sidecar(context, source, song.optString("localFileName", ""));
+        LyricRepository.Lyrics plain = null;
+        for (String extension : new String[]{"eslrc", "lrc"}) try {
+            String sidecar = sidecar(context, source, song.optString("localFileName", ""), extension);
             LyricRepository.Lyrics result = fromText(sidecar);
-            if (result != null) return result;
+            if (result == null) continue;
+            for (LyricTimeline.Line line : result.original.lines) if (!line.words.isEmpty()) return result;
+            if (plain == null) plain = result;
         } catch (Exception unavailable) { Log.d("VutronLyrics", "Local sidecar unavailable: " + unavailable.getClass().getSimpleName()); }
+        if (plain != null) return plain;
         try (InputStream input = open(context, source)) { return fromText(embedded(input)); }
         catch (Exception unavailable) { Log.d("VutronLyrics", "Embedded lyrics unavailable: " + unavailable.getClass().getSimpleName()); return null; }
     }
@@ -50,10 +54,10 @@ final class LocalLyricSource {
         return new FileInputStream(source.startsWith("file://") ? new File(Uri.parse(source).getPath()) : new File(source));
     }
 
-    private static String sidecar(Context context, String source, String filename) throws Exception {
+    private static String sidecar(Context context, String source, String filename, String extension) throws Exception {
         if (!source.startsWith("content://")) {
             File audio = source.startsWith("file://") ? new File(Uri.parse(source).getPath()) : new File(source);
-            String wanted = sidecarName(audio.getName());
+            String wanted = sidecarName(audio.getName(), extension);
             File[] siblings = audio.getParentFile() == null ? null : audio.getParentFile().listFiles();
             if (siblings != null) for (File file : siblings) if (file.isFile() && file.getName().equalsIgnoreCase(wanted)) {
                 try (InputStream input = new FileInputStream(file)) { return decode(readLimited(input, MAX_LYRIC_BYTES)); }
@@ -61,7 +65,9 @@ final class LocalLyricSource {
             return "";
         }
         Uri audio = Uri.parse(source);
-        if (!DocumentsContract.isTreeUri(audio)) return "";
+        boolean treeUri = Build.VERSION.SDK_INT >= 24 ? DocumentsContract.isTreeUri(audio)
+                : audio.getPathSegments().size() >= 2 && "tree".equals(audio.getPathSegments().get(0));
+        if (!treeUri) return "";
         String document = DocumentsContract.getDocumentId(audio);
         String parent = "";
         if (Build.VERSION.SDK_INT >= 26) {
@@ -82,7 +88,7 @@ final class LocalLyricSource {
             }
         }
         if (filename == null || filename.isEmpty()) return "";
-        String wanted = sidecarName(filename);
+        String wanted = sidecarName(filename, extension);
         Uri children = DocumentsContract.buildChildDocumentsUriUsingTree(audio, parent);
         try (Cursor cursor = context.getContentResolver().query(children, new String[]{DocumentsContract.Document.COLUMN_DOCUMENT_ID, DocumentsContract.Document.COLUMN_DISPLAY_NAME}, null, null, null)) {
             if (cursor == null) return "";
@@ -94,7 +100,11 @@ final class LocalLyricSource {
         return "";
     }
 
-    static String sidecarName(String name) { int dot = name.lastIndexOf('.'); return (dot > 0 ? name.substring(0, dot) : name) + ".lrc"; }
+    static String sidecarName(String name) { return sidecarName(name, "lrc"); }
+    static String sidecarName(String name, String extension) {
+        if (!"lrc".equals(extension) && !"eslrc".equals(extension)) throw new IllegalArgumentException("Unsupported lyric extension");
+        int dot = name.lastIndexOf('.'); return (dot > 0 ? name.substring(0, dot) : name) + "." + extension;
+    }
 
     static String decode(byte[] bytes) throws CharacterCodingException {
         if (bytes.length >= 2 && (bytes[0] & 255) == 255 && (bytes[1] & 255) == 254) return new String(bytes, 2, bytes.length - 2, StandardCharsets.UTF_16LE);

@@ -70,6 +70,7 @@ final class LyricRepository {
         if (id <= 0) throw new IOException("Invalid lyric song ID");
         JSONObject cached = readCache(context, id);
         if (cached != null) return new Lyrics(cached);
+        if (LocalOnlyMode.enabled(context)) return new Lyrics(new JSONObject());
         return fetch(context, id, null);
     }
 
@@ -81,6 +82,7 @@ final class LyricRepository {
     }
 
     static boolean hasValidationWifi(Context context) {
+        if (LocalOnlyMode.enabled(context)) return false;
         ConnectivityManager manager = context.getSystemService(ConnectivityManager.class);
         if (manager == null) return false;
         Network active = manager.getActiveNetwork();
@@ -103,6 +105,7 @@ final class LyricRepository {
 
     /** Worker-only. Cached lyrics remain available when validation fails or Wi-Fi is absent. */
     static Lyrics revalidateOnWifi(Context context, long id) throws IOException {
+        if (LocalOnlyMode.enabled(context)) return null;
         if (id <= 0 || !LyricOverlaySettings.wifiValidation(context) || !hasValidationWifi(context)) return null;
         JSONObject cached = readCache(context, id);
         if (cached != null && !validationDue(cached.optInt("_revision"),
@@ -147,7 +150,9 @@ final class LyricRepository {
     }
 
     private static Lyrics fetch(Context context, long id, JSONObject previous) throws IOException {
-        JSONObject response = new NeteaseApi(SessionStore.load(context)).lyricData(id);
+        LocalOnlyMode.requireOnline(context);
+        JSONObject response = new NeteaseApi(SessionStore.load(context),
+                () -> !LocalOnlyMode.enabled(context)).lyricData(id);
         JSONObject texts = new JSONObject();
         try {
             int size = 0;

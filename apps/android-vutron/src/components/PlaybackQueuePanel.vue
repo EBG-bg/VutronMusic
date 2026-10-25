@@ -3,6 +3,8 @@ import { computed } from 'vue'
 import { useAndroidShellStore } from '../stores/androidShell'
 import type { VutronTrack } from '../platform/vutronPlugin'
 import OriginalIcon from './OriginalIcon.vue'
+import TrackListPager from './TrackListPager.vue'
+import { useProgressiveTracks } from '../composables/libraryPresentation'
 const store = useAndroidShellStore()
 function keyedTracks(tracks: VutronTrack[]) {
   const occurrences = new Map<string, number>()
@@ -15,28 +17,32 @@ function keyedTracks(tracks: VutronTrack[]) {
 }
 const insertedTracks = computed(() => keyedTracks(store.playbackQueue.upNext))
 const playlistTracks = computed(() => keyedTracks(store.playbackQueue.tracks))
+const { visible: visibleInsertedTracks, hasMore: moreInsertedTracks, showMore: showMoreInsertedTracks } = useProgressiveTracks(insertedTracks, () => store.queueOpen)
+const { visible: visiblePlaylistTracks, hasMore: morePlaylistTracks, showMore: showMorePlaylistTracks } = useProgressiveTracks(playlistTracks, () => store.queueOpen)
 </script>
 <template>
   <Transition name="queue-sheet" :duration="250">
     <div v-if="store.queueOpen" class="queue-layer" @click.self="store.queueOpen = false">
-      <section class="queue-panel" role="dialog" aria-modal="true" aria-label="播放队列">
-        <header><div><h2>播放队列</h2><small>{{ store.playbackQueue.tracks.length }} 首 · {{ ['列表循环', '单曲循环', '随机播放'][store.playbackQueue.mode] }}</small></div><button class="icon-button" type="button" aria-label="关闭播放队列" @click="store.queueOpen = false"><OriginalIcon name="close" /></button></header>
+      <section class="queue-panel" role="dialog" aria-modal="true" :aria-label="$t('mobile.player.queue')">
+        <header><div><h2>{{ $t('mobile.player.queue') }}</h2><small>{{ $t('mobile.common.tracks', { count: store.playbackQueue.tracks.length }) }} · {{ [$t('mobile.player.listLoop'), $t('mobile.player.singleLoop'), $t('mobile.player.shuffle')][store.playbackQueue.mode] }}</small></div><button class="icon-button" type="button" :aria-label="$t('mobile.player.closeQueue')" @click="store.queueOpen = false"><OriginalIcon name="close" /></button></header>
         <div class="queue-scroll">
-          <h3>正在播放</h3>
-          <Transition name="queue-current" mode="out-in"><p :key="store.playback.trackId" class="queue-current">{{ store.playback.title || '尚未播放' }}</p></Transition>
+          <h3>{{ $t('mobile.common.playing') }}</h3>
+          <Transition name="queue-current" mode="out-in"><p :key="store.playback.trackId" class="queue-current">{{ store.playback.title || $t('mobile.common.notPlaying') }}</p></Transition>
           <Transition name="queue-section">
             <section v-if="insertedTracks.length" class="queue-inserted-section">
-              <div class="queue-section-title"><h3>插队播放 · {{ insertedTracks.length }}</h3><button class="text-button" type="button" @click="store.clearPlayNext()">清除插队</button></div>
+              <div class="queue-section-title"><h3>{{ $t('mobile.player.inserted', { count: insertedTracks.length }) }}</h3><button class="text-button" type="button" @click="store.clearPlayNext()">{{ $t('mobile.player.clearInserted') }}</button></div>
               <TransitionGroup name="queue-item" tag="div" class="queue-items">
-                <div v-for="{ track, index, key } in insertedTracks" :key="key" class="queue-row"><button type="button" class="queue-track" @click="store.playQueueIndex(index, true)"><OriginalIcon name="next" /><span><b>{{ track.name }}</b><small>{{ track.artists?.join(' / ') }}</small></span></button><button type="button" class="icon-button" :aria-label="`移除插队歌曲 ${track.name}`" @click="store.removeQueueTrack(index, true)"><OriginalIcon name="close" /></button></div>
+                <div v-for="{ track, index, key } in visibleInsertedTracks" :key="key" class="queue-row"><button type="button" class="queue-track" @click="store.playQueueIndex(index, true)"><OriginalIcon name="next" /><span><b>{{ track.name }}</b><small>{{ track.artists?.join(' / ') }}</small></span></button><button type="button" class="icon-button" :aria-label="$t('mobile.player.removeInserted', { name: track.name })" @click="store.removeQueueTrack(index, true)"><OriginalIcon name="close" /></button></div>
               </TransitionGroup>
+              <TrackListPager :more="moreInsertedTracks" @more="showMoreInsertedTracks" />
             </section>
           </Transition>
-          <h3>播放列表</h3>
+          <h3>{{ $t('mobile.player.playlist') }}</h3>
           <TransitionGroup name="queue-item" tag="div" class="queue-items">
-            <div v-for="{ track, index, key } in playlistTracks" :key="key" class="queue-row" :class="{ current: index === store.playbackQueue.index }"><button type="button" class="queue-track" @click="store.playQueueIndex(index)"><span class="queue-number">{{ index + 1 }}</span><span><b>{{ track.name }}</b><small>{{ track.artists?.join(' / ') }}</small></span></button><button type="button" class="icon-button" :aria-label="`从播放列表移除 ${track.name}`" @click="store.removeQueueTrack(index)"><OriginalIcon name="close" /></button></div>
+            <div v-for="{ track, index, key } in visiblePlaylistTracks" :key="key" class="queue-row" :class="{ current: index === store.playbackQueue.index }"><button type="button" class="queue-track" @click="store.playQueueIndex(index)"><span class="queue-number">{{ index + 1 }}</span><span><b>{{ track.name }}</b><small>{{ track.artists?.join(' / ') }}</small></span></button><button type="button" class="icon-button" :aria-label="$t('mobile.player.removeTrack', { name: track.name })" @click="store.removeQueueTrack(index)"><OriginalIcon name="close" /></button></div>
           </TransitionGroup>
-          <Transition name="queue-section"><p v-if="!playlistTracks.length" class="empty-state">在歌单中选择歌曲后显示播放列表</p></Transition>
+          <TrackListPager :more="morePlaylistTracks" @more="showMorePlaylistTracks" />
+          <Transition name="queue-section"><p v-if="!playlistTracks.length" class="empty-state">{{ $t('mobile.library.noQueue') }}</p></Transition>
         </div>
       </section>
     </div>

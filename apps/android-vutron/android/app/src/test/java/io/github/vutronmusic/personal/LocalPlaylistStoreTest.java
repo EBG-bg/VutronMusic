@@ -35,7 +35,7 @@ public class LocalPlaylistStoreTest {
 
     @Test public void importsTheExistingDesktopFormatAndRetainsStableTrackIdentity() throws Exception {
         File root = temporary.newFolder("bundles");
-        JSONObject original = new JSONObject().put("format", 1).put("name", "桌面歌单")
+        JSONObject original = new JSONObject().put("format", 1).put("generator", "vutron-desktop-export").put("name", "桌面歌单")
                 .put("tracks", new JSONArray().put(new JSONObject().put("id", -12)
                         .put("name", "歌曲").put("artist", "歌手").put("album", "专辑")
                         .put("duration", 180000).put("fileName", "audio/song.flac")));
@@ -58,7 +58,7 @@ public class LocalPlaylistStoreTest {
 
     @Test public void acceptsOriginalFileAliasAndExplicitRemoteIdentity() throws Exception {
         File root = temporary.newFolder("alias");
-        String manifest = "{\"name\":\"旧格式\",\"tracks\":[{\"file\":\"song.mp3\",\"neteaseId\":123}]}";
+        String manifest = "{\"format\":1,\"generator\":\"vutron-desktop-export\",\"name\":\"旧格式\",\"tracks\":[{\"file\":\"song.mp3\",\"neteaseId\":123}]}";
         JSONObject imported = LocalPlaylistStore.importArchive(root, new ByteArrayInputStream(archive(manifest, "song.mp3")));
         assertEquals(123, imported.getJSONArray("localTracks").getJSONObject(0).getLong("neteaseId"));
     }

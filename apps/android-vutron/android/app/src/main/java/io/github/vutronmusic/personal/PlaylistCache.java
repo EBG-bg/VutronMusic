@@ -27,6 +27,48 @@ final class PlaylistCache {
 
     private PlaylistCache() { }
 
+    /** Cache ownership is not an authenticated session and survives logout. */
+    static void rememberOwner(Context context, long userId) {
+        if (userId > 0) context.getSharedPreferences("vutron_cache_index", Context.MODE_PRIVATE)
+                .edit().putLong("owner_id", userId).apply();
+    }
+
+    static long cachedOwnerId(Context context) {
+        String profile = context.getSharedPreferences("vutron_user", Context.MODE_PRIVATE).getString("profile", "");
+        long legacyOwner = 0;
+        try { if (profile != null && !profile.isEmpty()) legacyOwner = new JSONObject(profile).optLong("userId", 0); }
+        catch (JSONException invalid) { Log.d(TAG, "No readable session profile for cache ownership"); }
+        if (legacyOwner > 0) { rememberOwner(context, legacyOwner); return legacyOwner; }
+        long owner = context.getSharedPreferences("vutron_cache_index", Context.MODE_PRIVATE).getLong("owner_id", 0);
+        if (owner > 0) return owner;
+        owner = cachedOwnerId(root(context));
+        if (owner > 0) rememberOwner(context, owner);
+        return owner;
+    }
+
+    /** Also recovers snapshots left by versions that already cleared their profile. */
+    static long cachedOwnerId(File root) {
+        File[] files = root.listFiles();
+        if (files == null) return 0;
+        java.util.regex.Pattern names = java.util.regex.Pattern.compile(
+                "(?:(?:user|recommendations)-([0-9]+)|playlist-([0-9]+)-[0-9]+)[.]json(?:[.]bak)?");
+        long selected = 0;
+        long newest = Long.MIN_VALUE;
+        for (File file : files) {
+            if (!file.isFile()) continue;
+            java.util.regex.Matcher match = names.matcher(file.getName());
+            if (!match.matches()) continue;
+            try {
+                long owner = Long.parseLong(match.group(1) == null ? match.group(2) : match.group(1));
+                long modified = file.lastModified();
+                if (owner > 0 && (modified > newest || modified == newest && owner > selected)) {
+                    selected = owner; newest = modified;
+                }
+            } catch (NumberFormatException invalid) { /* Ignore a filename outside the ID range. */ }
+        }
+        return selected;
+    }
+
     static void savePlaylists(Context context, long userId, List<JSONObject> values) throws IOException {
         if (userId <= 0) return;
         synchronized (LOCK) {
@@ -166,8 +208,15 @@ final class PlaylistCache {
                 } catch (java.net.URISyntaxException invalidCover) { /* Keep searching known remote metadata. */ }
             }
         }
-        try { return new JSONObject().put("id", playlistId).put("name", name.isEmpty() ? "歌单 " + playlistId : name)
-                .put("coverImgUrl", cover).put("trackCount", Math.max(0, trackCount)); }
+        try {
+            JSONObject result = new JSONObject().put("id", playlistId).put("name", name.isEmpty() ? "歌单 " + playlistId : name)
+                    .put("coverImgUrl", cover).put("trackCount", Math.max(0, trackCount));
+            for (JSONObject candidate : candidates) if (candidate != null && candidate.optLong("id", playlistId) == playlistId) {
+                for (String key : new String[]{"creatorUserId", "subscribed", "privacy", "description", "tags", "specialType"}) if (!result.has(key) && candidate.has(key)) result.put(key, candidate.get(key));
+                if (!result.has("creatorUserId") && candidate.optJSONObject("creator") != null) result.put("creatorUserId", candidate.getJSONObject("creator").optLong("userId"));
+            }
+            return result;
+        }
         catch (JSONException invalid) { throw new IOException("Cannot encode playlist display metadata", invalid); }
     }
 
@@ -177,6 +226,22 @@ final class PlaylistCache {
             if (row != null && row.optLong("id") == playlistId) return row;
         }
         return null;
+    }
+
+    static void removePlaylist(Context context, long userId, long playlistId) throws IOException {
+        if (userId <= 0 || playlistId <= 0) throw new IOException("歌单缓存标识无效");
+        synchronized (LOCK) {
+            JSONObject document = readDocument(context, userId);
+            try {
+                for (String key : new String[]{"playlists", "visitedPlaylists"}) {
+                    JSONArray kept = new JSONArray(), rows = document.optJSONArray(key);
+                    for (int i = 0; rows != null && i < rows.length(); i++) if (rows.getJSONObject(i).optLong("id") != playlistId) kept.put(rows.getJSONObject(i));
+                    document.put(key, kept);
+                }
+            } catch (JSONException invalid) { throw new IOException("删除歌单缓存索引失败", invalid); }
+            writeDocument(context, userId, document);
+            new AtomicFile(trackFile(context, userId, playlistId)).delete();
+        }
     }
 
     static long bytes(Context context) {

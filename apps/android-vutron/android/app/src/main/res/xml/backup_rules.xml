@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Only portable preferences are backed up. Sessions, profiles, WebView data,
+     cached media, imported audio, scan indexes and staged updates stay on-device. -->
+<full-backup-content>
+    <include domain="sharedpref" path="lyric_overlay.xml" />
+    <include domain="sharedpref" path="playback_volume.xml" />
+    <include domain="sharedpref" path="audio_cache_settings.xml" />
+    <include domain="sharedpref" path="artwork_cache_settings.xml" />
+    <include domain="sharedpref" path="local_folder.xml" />
+    <include domain="sharedpref" path="vutron_music_network.xml" />
+</full-backup-content>

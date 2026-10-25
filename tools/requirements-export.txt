@@ -1,0 +1,2 @@
+# Only needed for legacy Electron Chromium login cookies / private playlists.
+dfindexeddb==20260210

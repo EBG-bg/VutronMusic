@@ -35,7 +35,7 @@ import java.util.function.Consumer;
 /** Runs the desktop source matcher in a single, app-private Node.js Mobile runtime. */
 public final class EmbeddedSources {
     private static final Object LOCK = new Object();
-    private static final String BUNDLE = "sources-runtime-0280-node18204-v3";
+    private static final String BUNDLE = "sources-runtime-0280-node18204-v4";
     private static final String ASSETS = "sources-runtime";
     private static final String START_SYMBOL = "_ZN4node5StartEiPPc";
     private static final int MAX_RESPONSE = 1024 * 1024;
@@ -81,6 +81,21 @@ public final class EmbeddedSources {
         }
         record("match-ready", null);
         return item;
+    }
+
+    /** Android permits cleartext only on loopback; Node streams registered media bytes unchanged. */
+    public static JSONObject playable(Context context, JSONObject location) throws IOException {
+        if (!location.optString("url").toLowerCase(java.util.Locale.ROOT).startsWith("http://")) return location;
+        long deadline = SystemClock.elapsedRealtime() + REQUEST_TIMEOUT_MS;
+        ensureStarted(context.getApplicationContext()); awaitReady(deadline);
+        try {
+            JSONObject media = new JSONObject().put("url", location.getString("url"));
+            if (location.optJSONObject("headers") != null) media.put("headers", location.getJSONObject("headers"));
+            JSONObject response = get("/media/register?source=" + java.net.URLEncoder.encode(media.toString(), "UTF-8"), deadline, false);
+            String path = response.optString("path");
+            if (response.optInt("code") != 200 || !path.matches("/media/[a-f0-9]{48}")) throw new IOException("无法准备兼容播放地址");
+            return new JSONObject(location.toString()).put("url", "http://127.0.0.1:" + port + path).put("headers", new JSONObject());
+        } catch (JSONException invalid) { throw new IOException("音频兼容地址无效", invalid); }
     }
 
     public static String status() { return stage; }

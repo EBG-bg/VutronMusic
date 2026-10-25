@@ -18,8 +18,10 @@ export interface LyricFamily {
   source: 'word-timed' | 'plain' | 'empty'
 }
 
-const lrcLine = /^(?<stamps>(?:\[.+?\])+)(?!\[)(?<text>.*)$/gm
-const lrcStamp = /\[(?<minutes>\d+):(?<seconds>\d+)(?:[.:](?<milliseconds>\d{1,3}))?\]/g
+const lrcLine = /^(?<stamps>(?:\[\d{1,4}:\d{1,2}(?:[.:]\d{1,3})?\])+)(?<text>.*)$/
+const lrcStamp = /\[(?<minutes>\d{1,4}):(?<seconds>\d{1,2})(?:[.:](?<milliseconds>\d{1,3}))?\]/g
+const enhancedStamp = /<(\d{1,4}:\d{1,2}(?:[.:]\d{1,3})?)>/g
+const lyricOffset = /\[offset:([+-]?\d{1,9})\]/im
 const yrcLine = /^\[(?<start>\d+),(?<duration>\d+)\](?<content>.*)$/
 const yrcWord = /\((?<start>\d+),(?<duration>\d+),\d+\)(?<text>.*?)(?=\(\d+,\d+,\d+\)|$)/g
 
@@ -32,18 +34,57 @@ function stampToMs(match: RegExpExecArray): number {
 }
 
 export function parseLrc(value: string | undefined | null): LyricLine[] {
-  if (!value) return []
+  if (!value || value.length > 256 * 1024) return []
   const lines: LyricLine[] = []
-  for (const match of value.trim().matchAll(lrcLine)) {
-    const stamps = [...match.groups!.stamps.matchAll(lrcStamp)]
-    const text = match.groups!.text.trim()
-    for (const stamp of stamps) {
-      lines.push({ start: stampToMs(stamp), end: 0, text, words: [] })
+  const offset = Number(lyricOffset.exec(value)?.[1] ?? 0)
+  for (const raw of value.trim().split(/\r?\n/)) {
+    const match = lrcLine.exec(raw.trim())
+    if (!match) continue
+    const stamps = [...match.groups!.stamps.matchAll(lrcStamp)].filter(stamp => Number(stamp.groups!.seconds) < 60)
+    if (!stamps.length) continue
+    const content = match.groups!.text
+    const normalized = content.replace(enhancedStamp, '[$1]')
+    const inline = [...normalized.matchAll(lrcStamp)].filter(stamp => Number(stamp.groups!.seconds) < 60)
+    if (inline.length) {
+      const start = Math.max(0, stampToMs(stamps[0]) - offset)
+      const initial = Math.max(0, stampToMs(stamps[stamps.length - 1]) - offset)
+      const words: LyricWord[] = []
+      let cursor = 0, current = initial, text = '', valid = true
+      for (const stamp of inline) {
+        const next = Math.max(0, stampToMs(stamp) - offset)
+        let word = normalized.slice(cursor, stamp.index)
+        if (!text) word = word.trimStart()
+        if (next < current) valid = false
+        if (word) { words.push({ start: current, end: next, text: word }); text += word }
+        current = next
+        cursor = stamp.index + stamp[0].length
+      }
+      let tail = normalized.slice(cursor).trimEnd()
+      if (!text) tail = tail.trimStart()
+      if (tail) { words.push({ start: current, end: -1, text: tail }); text += tail }
+      // An empty terminal marker ends the preceding word; it is not an extra word.
+      if (words.length && !tail) {
+        const last = words[words.length - 1]
+        const trimmed = last.text.trimEnd()
+        text = text.slice(0, text.length - last.text.length) + trimmed
+        last.text = trimmed
+        if (!trimmed) words.pop()
+      }
+      lines.push({ start, end: 0, text: text.trim(), words: valid ? words : [] })
+    } else {
+      // Adjacent leading stamps in an ordinary LRC remain repeated lines.
+      const text = content.trim()
+      for (const stamp of stamps) lines.push({ start: Math.max(0, stampToMs(stamp) - offset), end: 0, text, words: [] })
     }
+    if (lines.length >= 12000) break
   }
   lines.sort((a, b) => a.start - b.start)
   lines.forEach((line, index) => {
     line.end = lines[index + 1]?.start ?? line.start + 3_000
+    for (const word of line.words) {
+      if (word.end < 0) word.end = line.end > word.start ? line.end : word.start + 3_000
+      line.end = Math.max(line.end, word.end)
+    }
   })
   return lines
 }
@@ -132,6 +173,6 @@ export function selectLyricFamily(payload: {
     original,
     translation,
     pairedTranslations: pairTranslations(original, translation),
-    source: original.length === 0 ? 'empty' : useWords ? 'word-timed' : 'plain'
+    source: original.length === 0 ? 'empty' : original.some(line => line.words.length > 0) ? 'word-timed' : 'plain'
   }
 }

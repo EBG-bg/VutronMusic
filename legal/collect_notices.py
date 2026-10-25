@@ -59,10 +59,29 @@ def scan_runtime(path: Path) -> None:
             scan_runtime(nested)
 
 package_names = ['vue', 'pinia', 'vue-demi', '@capacitor/core', '@capacitor/android', '@capacitor/app',
+                 'vue-i18n', '@intlify/shared', '@intlify/core-base', '@intlify/message-compiler', '@intlify/devtools-types', 'source-map-js',
                  '@vue/runtime-core', '@vue/runtime-dom', '@vue/reactivity', '@vue/shared', '@vue/devtools-api']
 for name in package_names:
     package(ROOT / 'apps/android-vutron/node_modules' / name, 'frontend')
 scan_runtime(RUNTIME / 'assets/sources-runtime/node_modules')
+
+# NIO desugaring is a separate D8 input, absent from releaseRuntimeClasspath.
+compat_source = ROOT / 'vendor/java-compat/desugar-jdk-2.1.5-source.zip'
+with zipfile.ZipFile(compat_source) as archive:
+    prefix = archive.namelist()[0]
+    if archive.read(prefix + 'VERSION_JDK11_NIO.txt').decode().strip().splitlines()[-1] != '2.1.5':
+        raise RuntimeError('Unexpected desugar NIO source version')
+    compat_licenses = []
+    for name in ['LICENSE', 'ASSEMBLY_EXCEPTION', 'ADDITIONAL_LICENSE_INFO']:
+        destination = LICENSES / 'java-compat' / name
+        destination.parent.mkdir(parents=True, exist_ok=True)
+        destination.write_bytes(archive.read(prefix + name))
+        compat_licenses.append(relative(destination))
+entries.append({'category': 'android-desugaring', 'name': 'com.android.tools:desugar_jdk_libs_nio', 'version': '2.1.5',
+                'declaredLicense': 'GPL version 2 with the Classpath Exception; retained per-file terms apply',
+                'licenseFiles': compat_licenses, 'source': relative(compat_source), 'sourceSha256': digest(compat_source),
+                'sourceRevision': '092407c51c3eaaaa9e46f7b7e436dc642f614064',
+                'repository': 'https://github.com/google/desugar_jdk_libs'})
 
 # This verbatim notice is retained in legal/ so a public checkout needs no private tree.
 api_license = LICENSES / 'netease-api-4.36.1-MIT.txt'
@@ -80,7 +99,7 @@ try:
     destination = LICENSES / 'frontend/_vue_devtools-api-6.6.4/LICENSE'
     destination.parent.mkdir(parents=True, exist_ok=True)
     destination.write_bytes(content)
-    license_sources.append({'file': relative(destination), 'source': url, 'retrieved': '2026-10-25'})
+    license_sources.append({'file': relative(destination), 'source': url, 'retrieved': '2026-10-26'})
     for entry in entries:
         if entry['name'] == '@vue/devtools-api':
             entry['licenseFiles'] = [relative(destination)]
@@ -104,7 +123,7 @@ for filename, url in {
     try:
         content = urllib.request.urlopen(url, timeout=25).read()
         destination.write_bytes(content)
-        license_sources.append({'file': relative(destination), 'source': url, 'retrieved': '2026-10-25'})
+        license_sources.append({'file': relative(destination), 'source': url, 'retrieved': '2026-10-26'})
     except Exception as error:
         if not destination.is_file():
             missing.append({'name': filename, 'reason': 'Official license fetch failed: ' + type(error).__name__, 'source': url})
@@ -171,12 +190,13 @@ for entry in entries:
         entry['licenseFiles'] = ['legal/licenses/Kotlin-APACHE-2.0.txt', 'legal/licenses/Kotlin-NOTICE.txt']
     if entry.get('name', '').startswith('org.jetbrains.kotlinx:'):
         entry['licenseFiles'] = ['legal/licenses/Kotlinx-Coroutines-APACHE-2.0.txt']
-document = {'product': 'Vutron Music - Mobile', 'release': '1.0.0', 'reviewDate': '2026-10-25',
+release_version = json.loads((ROOT / 'apps/android-vutron/package.json').read_text(encoding='utf-8-sig'))['version']
+document = {'product': 'Vutron Music - Mobile', 'release': release_version, 'reviewDate': '2026-10-26',
             'scope': 'Installed frontend modules, embedded Node source tree, resolved Android runtime graph and retained JNI binaries; build-only dependencies are not asserted to ship.',
             'packages': entries, 'nativeBinaries': binaries, 'licenseSources': license_sources, 'unresolvedLicenseFiles': missing}
 (LEGAL / 'third-party-inventory.json').write_text(json.dumps(document, ensure_ascii=False, indent=2) + '\n', encoding='utf-8')
 
-combined = ['Vutron Music - Mobile 1.0.0 — retained third-party license texts',
+combined = [f'Vutron Music - Mobile {release_version} — retained third-party license texts',
             'This collection preserves upstream texts. It does not relicense third-party components.\n']
 for license_path in sorted(LICENSES.rglob('*')):
     if license_path.is_file():

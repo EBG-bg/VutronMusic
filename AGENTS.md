@@ -1,5 +1,9 @@
 # VutronMusic
 
+## 本地构建规则入口
+
+在本地工作区继续 Android 版本、品牌、构建或交付任务前，如果父目录 AGENTS.md 及 apps/android-vutron/_private/BUILD_RULES.md 存在，必须先读取其中的分轨与发布规则。该要求在恢复会话和上下文压缩后同样适用。使用构建入口选择版本和品牌，不手工把全部源码替换为某一分发名称；私有配置及规则不进入公开分发。
+
 多数据源桌面音乐播放器，基于 Electron + Vue3 + TypeScript。
 
 ## 技术栈

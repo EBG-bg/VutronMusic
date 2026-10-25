@@ -73,6 +73,8 @@ build/
 
 # TypeScript incremental compilation cache
 *.tsbuildinfo
+__pycache__/
+*.py[cod]
 
 # Native addon pre-built binaries
 src/native/*/bin/
@@ -86,6 +88,8 @@ docs/superpowers
 .superpowers
 
 # Local migration research, personal test artifacts and credentials are never published.
+/android/*
+!/android/shared/
 /_analysis/
 /_archives/
 /_artifacts/

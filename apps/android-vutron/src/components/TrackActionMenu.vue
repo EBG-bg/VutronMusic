@@ -1,5 +1,7 @@
 <script setup lang="ts">
-import { nextTick, onMounted, onUnmounted, ref, watch } from 'vue'
+import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue'
+import { useLibraryManagement } from '../composables/libraryManagement'
+import { onlineTrackId } from '../stores/domains/neteaseLibrary'
 import { useAndroidShellStore } from '../stores/androidShell'
 import { vutronPlugin, type VutronTrack } from '../platform/vutronPlugin'
 import { createLiveSettingWriter } from '../platform/liveSettingWrites'
@@ -9,6 +11,16 @@ import CollapsibleSettingsCard from './CollapsibleSettingsCard.vue'
 const props = defineProps<{ track: VutronTrack }>()
 const emit = defineEmits<{ close: [] }>()
 const store = useAndroidShellStore()
+const management = useLibraryManagement()
+const cacheTrackId = computed(() => props.track.neteaseId || (!props.track.localUri && !props.track.localPath || props.track.cached ? props.track.id : 0))
+const hasCache = computed(() => cacheTrackId.value > 0 && store.cachedTracks.some(item => item.id === cacheTrackId.value))
+const isLocal = computed(() => Boolean(props.track.localFolderId || props.track.localPlaylistId))
+const canUseOnline = computed(() => store.onlineAvailable && onlineTrackId(props.track) > 0)
+async function toggleLike() { await store.toggleTrackLike(props.track) }
+function addToPlaylist() { store.openAddToOnlinePlaylist(props.track); close() }
+async function removeFromOnlinePlaylist() { if (await store.removeTrackFromOnlinePlaylist(props.track)) close() }
+async function deleteCache() { if (await management.deleteCachedTrack(props.track)) close() }
+async function removeLocal() { if (await management.removeLocalTrack(props.track)) close() }
 const dialog = ref<HTMLElement>()
 const busy = ref(false)
 const volume = ref<number | string>(100)
@@ -105,7 +117,7 @@ function volumeInput(event: Event) {
 }
 async function saveVolume() { await queueVolume(true)?.writer.flush() }
 watch(() => props.track, () => { volumeRead++; volumeEdit++; notice.value = ''; volume.value = volumeLanes.get(volumeIdentity(props.track))?.lastValue ?? 100 })
-onMounted(async () => { document.addEventListener('keydown', keyboard, true); await nextTick(); dialog.value?.querySelector<HTMLButtonElement>('button')?.focus({ preventScroll: true }) })
+onMounted(async () => { document.addEventListener('keydown', keyboard, true); if (canUseOnline.value) void store.loadLikedTracks(); await nextTick(); dialog.value?.querySelector<HTMLButtonElement>('button')?.focus({ preventScroll: true }) })
 onUnmounted(() => { mounted = false; volumeRead++; for (const lane of volumeLanes.values()) void lane.writer.flush(); document.removeEventListener('keydown', keyboard, true) })
 </script>
 
@@ -114,6 +126,12 @@ onUnmounted(() => { mounted = false; volumeRead++; for (const lane of volumeLane
       <section ref="dialog" class="track-action-menu" role="dialog" aria-modal="true" aria-label="歌曲操作">
         <header><div><h2>{{ track.name }}</h2><p>{{ track.artists?.join(' / ') || track.album || '歌曲操作' }}</p></div><button class="icon-button" type="button" aria-label="关闭歌曲菜单" @click="close"><OriginalIcon name="close" /></button></header>
         <div class="track-action-options">
+          <button v-if="canUseOnline" type="button" :disabled="busy || store.onlineMutationBusy || store.onlineNeedsRefresh || !store.likedLoaded" @click="toggleLike"><OriginalIcon :name="store.isTrackLiked(track) ? 'heartSolid' : 'heart'" /><span>{{ store.likedLoaded ? $t(store.isTrackLiked(track) ? 'mobile.netease.unlike' : 'mobile.netease.like') : $t('mobile.netease.likeLoading') }}</span></button>
+          <button v-if="canUseOnline" type="button" :disabled="busy || store.onlineMutationBusy || store.onlineNeedsRefresh" @click="addToPlaylist"><OriginalIcon name="plus" /><span>{{ $t('mobile.netease.addTo') }}</span></button>
+          <button v-if="store.removableOnlinePlaylist(track)" type="button" :disabled="busy || store.onlineMutationBusy || store.onlineNeedsRefresh" @click="removeFromOnlinePlaylist"><OriginalIcon name="close" /><span>{{ $t('mobile.netease.remove') }}</span></button>
+          <button v-if="canUseOnline && (!store.likedLoaded || store.onlineNeedsRefresh)" type="button" :disabled="store.onlineMutationBusy || store.likesLoading" @click="store.onlineNeedsRefresh ? store.refreshOnlineLibrary() : store.loadLikedTracks(true)"><OriginalIcon name="refresh" /><span>{{ $t('mobile.netease.refresh') }}</span></button>
+          <button v-if="isLocal" type="button" :disabled="busy" @click="removeLocal"><OriginalIcon name="close" /><span>{{ $t('mobile.management.removeTrack') }}<small>{{ $t('mobile.management.originalRetained') }}</small></span></button>
+          <button v-if="hasCache" type="button" :disabled="busy" @click="deleteCache"><OriginalIcon name="close" /><span>{{ $t('mobile.management.deleteCache') }}<small>{{ $t('mobile.management.cacheRetained') }}</small></span></button>
           <button type="button" :disabled="busy" @click="action('next')"><OriginalIcon name="next" /><span>下一首播放<small>按添加顺序插队</small></span></button>
           <button type="button" :disabled="busy" @click="action('append')"><OriginalIcon name="list" /><span>添加到播放列表末尾<small>保留当前播放和插队顺序</small></span></button>
           <button type="button" :disabled="busy" @click="action('play')"><OriginalIcon name="play" /><span>立即播放</span></button>

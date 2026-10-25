@@ -1,7 +1,7 @@
 {
   "name": "vutronmusic-android-shell",
   "private": true,
-  "version": "1.0.0",
+  "version": "1.0.1",
   "type": "module",
   "scripts": {
     "dev": "vite",
@@ -16,7 +16,8 @@
     "@capacitor/core": "^7.4.0",
     "@vutronmusic/core": "file:../../packages/core",
     "pinia": "^2.1.7",
-    "vue": "^3.5.10"
+    "vue": "^3.5.10",
+    "vue-i18n": "11.4.16"
   },
   "devDependencies": {
     "@capacitor/cli": "^7.4.0",

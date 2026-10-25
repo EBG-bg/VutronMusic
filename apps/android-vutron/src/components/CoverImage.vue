@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { onMounted, onUnmounted, ref, watch } from 'vue'
 import { displayArtworkUri, fetchArtwork } from '../platform/artwork'
+import { localOnlyMode } from '../platform/localOnlyMode'
 import originalArtwork from '../../../../src/renderer/assets/images/vutronmusic-icon.png'
 
 const props = withDefaults(defineProps<{ src?: string; remoteSrc?: string; alt?: string; loading?: 'eager' | 'lazy' }>(), {
@@ -25,13 +26,14 @@ async function loadSource(useRemote = false) {
   try {
     const isRemote = source.startsWith('http://') || source.startsWith('https://')
     const uri = isRemote ? await fetchArtwork(source) : displayArtworkUri(source)
-    if (alive && token === generation) displayed.value = uri || placeholder
+    if (alive && token === generation) { displayed.value = uri || placeholder; if (!uri) state.value = 'missing' }
   } catch (error) {
     if (!alive || token !== generation) return
     // Native fetching carries provider headers; a plain URL remains a useful
     // fallback for providers that support WebView image requests.
     console.warn('Artwork unavailable', error instanceof Error ? error.message : String(error))
-    displayed.value = displayArtworkUri(source)
+    displayed.value = localOnlyMode.value ? placeholder : displayArtworkUri(source) || placeholder
+    if (displayed.value === placeholder) state.value = 'missing'
   }
 }
 
@@ -43,7 +45,7 @@ function onError() {
 }
 function onLoad() { if (displayed.value !== placeholder) state.value = 'loaded' }
 
-watch(() => [props.src, props.remoteSrc], () => {
+watch(() => [props.src, props.remoteSrc, localOnlyMode.value], () => {
   ++generation; triedRemote = false; displayed.value = placeholder
   void loadSource()
 })

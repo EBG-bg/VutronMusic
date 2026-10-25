@@ -65,7 +65,7 @@ final class PlaybackRequest {
         JSONObject headers = location == null ? null : location.optJSONObject("headers");
         return new Intent(context, AndroidPlaybackService.class).setAction(AndroidPlaybackService.ACTION_PLAY)
                 .putExtra("url", source).putExtra("trackId", id)
-                .putExtra("title", song.optString("name", "Vutron Music - Mobile"))
+                .putExtra("title", song.optString("name", BuildConfig.APP_DISPLAY_NAME))
                 .putExtra("artist", artistText(song)).putExtra("coverUrl", cover)
                 .putExtra("track", song.toString()).putExtra("autoPlay", autoPlay)
                 .putExtra("cacheLocation", location == null ? "" : location.toString())
@@ -77,11 +77,12 @@ final class PlaybackRequest {
         String raw = prefs.getString("current_track", "");
         if (raw != null && !raw.isEmpty()) return new JSONObject(raw);
         return new JSONObject().put("id", prefs.getLong("lastTrackId", prefs.getLong("trackId", 0L)))
-                .put("name", prefs.getString("lastTitle", prefs.getString("title", "Vutron Music - Mobile")))
+                .put("name", prefs.getString("lastTitle", prefs.getString("title", BuildConfig.APP_DISPLAY_NAME)))
                 .put("artist", prefs.getString("lastArtist", prefs.getString("artist", "")));
     }
 
     private static String localSource(JSONObject song) throws IOException {
+        if (song.optBoolean("missingLocal")) throw new IOException("备份未包含音频，请重新授权音乐文件夹或导入原歌单包后播放");
         String value = first(song, "localUri", "localPath");
         if (value.isEmpty()) return "";
         if (value.startsWith("content://")) return value;

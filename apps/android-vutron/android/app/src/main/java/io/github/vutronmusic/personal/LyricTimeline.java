@@ -10,6 +10,8 @@ import java.util.regex.Pattern;
 /** Timed lyrics with a binary-search cursor; the caller always supplies player time. */
 final class LyricTimeline {
     private static final Pattern STAMP = Pattern.compile("\\[(\\d{1,4}):(\\d{1,2})(?:[.:](\\d{1,3}))?\\]");
+    private static final Pattern LEADING = Pattern.compile("^(?:\\[\\d{1,4}:\\d{1,2}(?:[.:]\\d{1,3})?\\])+");
+    private static final Pattern ENHANCED = Pattern.compile("<(\\d{1,4}:\\d{1,2}(?:[.:]\\d{1,3})?)>");
     private static final Pattern OFFSET = Pattern.compile("(?im)\\[offset:([+-]?\\d{1,9})\\]");
     private static final Pattern YRC_LINE = Pattern.compile("^\\[(\\d{1,10}),(\\d{1,9})\\](.*)$");
     private static final Pattern YRC_WORD = Pattern.compile("\\((\\d{1,10}),(\\d{1,9}),\\d+\\)(.*?)(?=\\(\\d{1,10},\\d{1,9},\\d+\\)|$)");
@@ -116,26 +118,80 @@ final class LyricTimeline {
         Matcher offsetMatcher = OFFSET.matcher(lrc);
         if (offsetMatcher.find()) offset = Long.parseLong(offsetMatcher.group(1));
         for (String raw : lrc.split("\\r?\\n")) {
-            Matcher stamp = STAMP.matcher(raw);
+            raw = trimEnd(trimStart(raw));
+            Matcher leading = LEADING.matcher(raw);
+            if (!leading.find()) continue;
+            Matcher stamp = STAMP.matcher(leading.group());
             List<Long> times = new ArrayList<>();
-            int end = 0;
             while (stamp.find()) {
-                int seconds = Integer.parseInt(stamp.group(2));
-                if (seconds >= 60) continue;
-                String fraction = stamp.group(3);
-                long millis = fraction == null ? 0 : Integer.parseInt(fraction) * (fraction.length() == 1 ? 100 : fraction.length() == 2 ? 10 : 1);
-                long time = Long.parseLong(stamp.group(1)) * 60000 + seconds * 1000L + millis - offset;
-                times.add(Math.max(0, time));
-                end = stamp.end();
+                long time = stampTime(stamp, offset);
+                if (time >= 0) times.add(time);
             }
             if (times.isEmpty()) continue;
-            String text = raw.substring(end).trim();
-            for (long time : times) {
-                result.add(new Line(time, 0, text, Collections.emptyList()));
-                if (result.size() >= MAX_LINES) return new LyricTimeline(result);
+            String content = ENHANCED.matcher(raw.substring(leading.end())).replaceAll("[$1]");
+            Matcher inline = STAMP.matcher(content);
+            boolean timed = false;
+            while (inline.find()) if (stampTime(inline, offset) >= 0) { timed = true; break; }
+            if (timed) result.add(timedLine(times.get(0), times.get(times.size() - 1), content, offset));
+            else for (long time : times) {
+                result.add(new Line(time, 0, content.trim(), Collections.emptyList()));
+                if (result.size() >= MAX_LINES) break;
             }
+            if (result.size() >= MAX_LINES) break;
         }
-        return new LyricTimeline(result);
+        result.sort(Comparator.comparingLong(line -> line.time));
+        List<Line> finalized = new ArrayList<>();
+        for (int i = 0; i < result.size(); i++) {
+            Line line = result.get(i);
+            if (line.words.isEmpty()) { finalized.add(line); continue; }
+            long end = i + 1 < result.size() ? result.get(i + 1).time : line.time + 3000;
+            List<Word> words = new ArrayList<>();
+            for (Word word : line.words) {
+                long duration = word.duration < 0 ? (end > word.start ? end - word.start : 3000) : word.duration;
+                words.add(new Word(word.start, duration, word.first, word.end));
+                end = Math.max(end, word.start + duration);
+            }
+            finalized.add(new Line(line.time, end - line.time, line.text, Collections.unmodifiableList(words)));
+        }
+        return new LyricTimeline(finalized);
+    }
+
+    private static long stampTime(Matcher stamp, long offset) {
+        int seconds = Integer.parseInt(stamp.group(2));
+        if (seconds >= 60) return -1;
+        String fraction = stamp.group(3);
+        long millis = fraction == null ? 0 : Integer.parseInt(fraction) * (fraction.length() == 1 ? 100 : fraction.length() == 2 ? 10 : 1);
+        return Math.max(0, Long.parseLong(stamp.group(1)) * 60000 + seconds * 1000L + millis - offset);
+    }
+
+    private static Line timedLine(long start, long initial, String content, long offset) {
+        Matcher stamp = STAMP.matcher(content); StringBuilder text = new StringBuilder();
+        List<Word> words = new ArrayList<>(); long current = initial; int cursor = 0; boolean valid = true;
+        while (stamp.find()) {
+            long next = stampTime(stamp, offset); if (next < 0) continue;
+            String word = content.substring(cursor, stamp.start()); if (text.length() == 0) word = trimStart(word);
+            if (next < current) valid = false;
+            if (!word.isEmpty()) { int first = text.length(); text.append(word); words.add(new Word(current, next - current, first, text.length())); }
+            current = next; cursor = stamp.end();
+        }
+        String tail = trimEnd(content.substring(cursor)); if (text.length() == 0) tail = trimStart(tail);
+        if (!tail.isEmpty()) { int first = text.length(); text.append(tail); words.add(new Word(current, -1, first, text.length())); }
+        else if (!words.isEmpty()) {
+            String trimmed = trimEnd(text.toString()); text.setLength(trimmed.length());
+            Word last = words.remove(words.size() - 1);
+            if (last.first < text.length()) words.add(new Word(last.start, last.duration, last.first, text.length()));
+        }
+        return new Line(start, 0, text.toString(), valid ? Collections.unmodifiableList(words) : Collections.emptyList());
+    }
+
+    private static boolean space(int point) { return Character.isWhitespace(point) || Character.isSpaceChar(point) || point == 0xfeff; }
+    private static String trimStart(String text) {
+        int index = 0; while (index < text.length() && space(text.codePointAt(index))) index += Character.charCount(text.codePointAt(index));
+        return text.substring(index);
+    }
+    private static String trimEnd(String text) {
+        int index = text.length(); while (index > 0 && space(text.codePointBefore(index))) index -= Character.charCount(text.codePointBefore(index));
+        return text.substring(0, index);
     }
 
     static LyricTimeline parseWords(String yrc) {

@@ -1,0 +1,51 @@
+const test = require('node:test')
+const assert = require('node:assert/strict')
+const fs = require('node:fs')
+const vm = require('node:vm')
+const path = require('node:path')
+const ts = require('typescript')
+const vue = require('vue')
+function load(storage = new Map()) {
+  const filename = path.join(__dirname, '../src/composables/localTrackOrdering.ts')
+  const module = { exports: {} }
+  const code = ts.transpileModule(fs.readFileSync(filename, 'utf8'), { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 } }).outputText
+  vm.runInNewContext(code, { module, exports: module.exports, require: () => vue,
+    localStorage: { getItem: key => storage.get(key) ?? null, setItem: (key, value) => storage.set(key, value) }, Intl })
+  return module.exports
+}
+test('custom order is scoped per collection and survives component recreation', async () => {
+  const storage = new Map(), api = load(storage), scope = vue.effectScope()
+  const tracks = vue.ref([{ id: 1, name: 'A', localKey: 'a' }, { id: 1, name: 'B', localKey: 'b' }, { id: 2, name: 'C', localKey: 'c' }])
+  const key = vue.ref('bundle:one'), source = vue.computed(() => tracks.value)
+  const state = scope.run(() => api.useCollectionTrackOrder(source, key))
+  state.commit(['c', 'a', 'b'])
+  assert.deepEqual(Array.from(state.ordered.value, x => x.name), ['C', 'A', 'B'])
+  key.value = 'folder:two'; await vue.nextTick()
+  assert.deepEqual(Array.from(state.ordered.value, x => x.name), ['A', 'B', 'C'])
+  state.commit(['b', 'a', 'c']); key.value = 'bundle:one'; await vue.nextTick()
+  const restored = scope.run(() => load(storage).useCollectionTrackOrder(source, key))
+  assert.deepEqual(Array.from(restored.ordered.value, x => x.name), ['C', 'A', 'B'])
+  restored.restore()
+  assert.deepEqual(Array.from(restored.ordered.value, x => x.name), ['A', 'B', 'C'])
+  scope.stop()
+})
+test('reordering never mutates source data and missing/new songs reconcile stably', () => {
+  const { applyCollectionOrder, moveTrackKey } = load()
+  const keys = ['a', 'b', 'c'], moved = moveTrackKey(keys, 'c', 'a')
+  assert.deepEqual(Array.from(moved), ['c', 'a', 'b']); assert.deepEqual(keys, ['a', 'b', 'c'])
+  const source = ['a', 'c', 'new'].map((key, id) => ({ id, localKey: key, name: key }))
+  const sorted = applyCollectionOrder(source, { mode: 'custom', keys: ['c', 'deleted', 'a'] })
+  assert.deepEqual(Array.from(sorted, x => x.name), ['c', 'a', 'new'])
+  const filtered = sorted.filter(x => x.name === 'a')
+  assert.equal(filtered.length, 1); assert.equal(sorted.length, 3)
+  assert.deepEqual(source.map(x => x.name), ['a', 'c', 'new'])
+})
+test('drag cancellation only discards gesture state; actual component isolates drag from row menu', () => {
+  const source = fs.readFileSync(path.join(__dirname, '../src/components/LocalTrackList.vue'), 'utf8')
+  assert.match(source, /@pointercancel="cancelDrag"/)
+  assert.match(source, /@pointerdown\.stop\.prevent="startDrag/)
+  assert.match(source, /@lostpointercapture="cancelDrag"/)
+  assert.match(source, /requestAnimationFrame\(autoscroll\)/)
+  assert.match(source, /emit\('play', track, playable\.value\)/)
+  assert.match(source, /!row\.missingLocal && \(!props\.localOnly \|\| !row\.onlineOnly\)/)
+})

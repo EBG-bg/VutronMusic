@@ -1,6 +1,6 @@
 # Vutron Music - Mobile: Third-party notices
 
-Release scope: **1.0.0**. Inventory reviewed **2026-10-25**. Maintained by **EBG-bg and contributors**.
+Release scope: **1.0.1**. Inventory reviewed **2026-10-26**. Maintained by **EBG-bg and contributors**.
 
 The original [LICENSE](LICENSE) is preserved verbatim. Individual third-party components retain their own licenses; the application is **not a statement that every bundled component is MIT**. Full retained texts are in [legal/licenses](legal/licenses) and [legal/THIRD_PARTY_LICENSES.txt](legal/THIRD_PARTY_LICENSES.txt). The machine-readable inventory is [legal/third-party-inventory.json](legal/third-party-inventory.json).
 
@@ -15,6 +15,7 @@ The original [LICENSE](LICENSE) is preserved verbatim. Individual third-party co
 | Capacitor App plugin | 7.1.2 | MIT, Ionic, `legal/licenses/frontend/` |
 | ZXing Core (QR code generation) | 3.5.3 | Apache-2.0, `legal/licenses/ZXing-*`; repository notice may describe modules not present in the APK |
 | Java Native Access, including native dispatch | 5.17.0 | Apache-2.0 option of `Apache-2.0 OR LGPL-2.1-or-later`; `legal/licenses/native-runtime/JNA-*` |
+| Java API / NIO backports | desugar_jdk_libs_nio 2.1.5 | GPL v2 with the Classpath Exception and retained per-file terms; `legal/licenses/java-compat/`; source and build materials in `vendor/java-compat/` |
 | AndroidX / Kotlin standard library / coroutines / Cordova / small Android transitives | Exact resolved coordinates in `legal/gradle-runtime-dependencies.txt` | Apache-2.0; retained artifact notices under `legal/licenses/maven/`, plus Kotlin/Cordova notice files |
 | Nodejs-Mobile `libnode.so` | Node 18.20.4; official Nodejs-Mobile Android release | Node's MIT notice **and embedded third-party notices**, `legal/licenses/native-runtime/Nodejs-Mobile-LICENSE.txt` |
 | Android NDK `libc++_shared.so` | r24, ARM64 in the mobile APK | LLVM/Apache-2.0 with LLVM exceptions and included subcomponent terms; full NDK and libc++abi notices retained under `legal/licenses/native-runtime/` |

@@ -16,6 +16,7 @@ const { AsyncLocalStorage } = require('async_hooks');
 const tasks = new AsyncLocalStorage();
 const { compareValidatedSources, describeQuality } = require('./quality-selection.cjs');
 const { selectCandidate } = require('./strict-identity.cjs');
+const mediaGateway = require('./media-gateway.cjs').createMediaGateway();
 const diagnosticPath = process.argv[4];
 let diagnosticError = '';
 let stage = 'loading-matcher';
@@ -245,11 +246,22 @@ function json(response, code, value) {
 }
 
 const server = http.createServer((request, response) => {
+  let target;
+  try { target = new URL(request.url, 'http://127.0.0.1'); }
+  catch { json(response, 400, { code: 400, message: 'Invalid runtime request URL' }); return; }
+  if (mediaGateway.handle(request, response, target)) return;
   if (request.headers.authorization !== `Bearer ${token}`) {
     json(response, 403, { code: 403, message: 'Unauthorized runtime request' });
     return;
   }
-  const target = new URL(request.url, 'http://127.0.0.1');
+  if (request.method === 'GET' && target.pathname === '/media/register') {
+    try {
+      const raw = target.searchParams.get('source') || '';
+      if (raw.length > 16384) throw new Error('Media registration too large');
+      json(response, 200, { code: 200, path: mediaGateway.register(JSON.parse(raw)) });
+    } catch { json(response, 400, { code: 400, message: 'Invalid media registration' }); }
+    return;
+  }
   if (request.method === 'GET' && target.pathname === '/health') {
     json(response, 200, { code: 200, ready: true, node: process.versions.node, matcher: '0.28.0', stage, lastError, diagnosticError });
     return;

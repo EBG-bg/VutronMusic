@@ -1,6 +1,6 @@
 # Redistribution and corresponding source
 
-Product: **Vutron Music - Mobile 1.0.0**. Maintainer: **EBG-bg and contributors**. Review date: **2026-10-25**.
+Product: **Vutron Music - Mobile 1.0.1**. Maintainer: **EBG-bg and contributors**. Review date: **2026-10-26**.
 
 ## Project and upstream notices
 
@@ -16,13 +16,15 @@ The embedded `@unblockneteasemusic/server` **0.28.0** is declared **LGPL-3.0-onl
 - `vendor/android-runtime/src/main/assets/sources-runtime/node_modules/@unblockneteasemusic/server/COPYING.LESSER`
 - Copies in `legal/licenses/embedded-node/` and `legal/THIRD_PARTY_LICENSES.txt`.
 
-The release's corresponding source is distributed in the public fork **https://github.com/EBG-bg/VutronMusic**, on branch `mobile` with release tag **`mobile-v1.0.0`**. The shipped matcher source remains readable JavaScript in `vendor/android-runtime/src/main/assets/sources-runtime/node_modules/@unblockneteasemusic/server/`. The adaptation uses its main matcher, not its Windows service helpers or proxy/hook CLI. The application wrapper and quality/identity changes are source files `server.js`, `quality-selection.cjs` and `strict-identity.cjs` in the same runtime directory, plus `EmbeddedSources.java` and the Android source/build configuration. The license inventory records the exact packaged dependency versions.
+The project source repository is https://github.com/EBG-bg/VutronMusic. Any distributed binary must be accompanied by its matching corresponding source and build materials; a published release should preserve that exact source under its matching mobile-v version tag. The current public branch must not be assumed to contain unpublished local changes. The shipped matcher source remains readable JavaScript in `vendor/android-runtime/src/main/assets/sources-runtime/node_modules/@unblockneteasemusic/server/`. The adaptation uses its main matcher, not its Windows service helpers or proxy/hook CLI. The application wrapper and quality/identity changes are source files `server.js`, `quality-selection.cjs` and `strict-identity.cjs` in the same runtime directory, plus `EmbeddedSources.java` and the Android source/build configuration. The license inventory records the exact packaged dependency versions.
 
 Do not restrict modifications of the LGPL library, or reverse engineering necessary to debug those modifications. This project's user guidance adds no such restriction. To use a modified matcher, edit the supplied JavaScript source and rebuild the Android app from the matching source release. The included Gradle/Vite/Capacitor build configuration and the native runtime files are the corresponding application materials; no private signing key is required to build and install a separately signed modified app. A separately signed app may require a different package or uninstalling a previously signed install; user data should be backed up by its owner before changing installations.
 
 If the source is relocated, publish an accessible replacement source location with the binary and keep the matching source version available. Merely naming a license, linking only to today's upstream branch, or offering a binary alone does not replace the corresponding-source obligations.
 
 ## Native binary provenance
+
+The Android Java/NIO backports use `com.android.tools:desugar_jdk_libs_nio:2.1.5`. The unmodified official source archive with a 2.1.5 NIO version marker is retained in `vendor/java-compat/` with its revision, SHA-256, source/build materials and origin. Its GPL v2 text, Classpath Exception, assembly exception and additional licensing information are included in `legal/licenses/java-compat/` and the APK notices. Retain these materials when redistributing the corresponding backported classes; the independent application modules retain their own terms under the stated exception.
 
 - **Nodejs-Mobile 18.20.4:** official release at `https://github.com/nodejs-mobile/nodejs-mobile/releases/tag/v18.20.4`. Existing project acquisition notes identify the official Android release archive. The retained ARM64 `libnode.so` is 62,475,584 bytes. Node's full license contains notices for its bundled V8/OpenSSL/ICU/libuv and other components; do not substitute only a short MIT label.
 - **Android NDK r24 libc++:** official archive `https://dl.google.com/android/repository/android-ndk-r24-windows.zip`. Full NDK toolchain and libc++abi notices are retained. ARM64 `libc++_shared.so` is 6,761,584 bytes.

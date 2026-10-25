@@ -25,6 +25,7 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
+import java.util.function.BooleanSupplier;
 import java.util.zip.GZIPInputStream;
 
 import javax.crypto.Cipher;
@@ -48,12 +49,32 @@ public final class NeteaseApi {
     private static final SecureRandom RANDOM = new SecureRandom();
     private static final int MAX_RESPONSE = 16 * 1024 * 1024;
     private final LinkedHashMap<String, String> cookies = new LinkedHashMap<>();
+    private final BooleanSupplier onlineAllowed;
+    interface Transport { JSONObject request(String path, JSONObject payload, boolean weapi) throws IOException; }
+    private final Transport transport;
+    private volatile long verifiedUserId;
     private final String deviceId = randomHex(16);
     private final String nuid = randomHex(32);
     private final String wnmcid = randomHex(3) + "." + System.currentTimeMillis() + ".01.0";
 
     public NeteaseApi(String cookie) {
+        this(cookie, () -> true);
+    }
+
+    /** The old constructor remains available for explicit login and other hosts. */
+    public NeteaseApi(String cookie, BooleanSupplier onlineAllowed) {
+        this(cookie, onlineAllowed, null);
+    }
+
+    NeteaseApi(String cookie, BooleanSupplier onlineAllowed, Transport transport) {
+        if (onlineAllowed == null) throw new IllegalArgumentException("Missing music network policy");
+        this.onlineAllowed = onlineAllowed;
+        this.transport = transport;
         setCookie(cookie);
+    }
+
+    private void requireOnline() throws IOException {
+        if (!onlineAllowed.getAsBoolean()) throw new IOException("当前为本地模式，音乐网络请求已关闭");
     }
 
     public synchronized String getCookie() {
@@ -79,6 +100,7 @@ public final class NeteaseApi {
         }
         cookies.clear();
         cookies.putAll(parsed);
+        verifiedUserId = 0;
     }
 
     /** A verified login profile, not the login/status wrapper returned by the Node API. */
@@ -89,6 +111,7 @@ public final class NeteaseApi {
         if (profile == null || profile.optLong("userId") <= 0) {
             throw new IOException("登录已失效，请重新扫码或导入 Cookie");
         }
+        verifiedUserId = profile.optLong("userId");
         return profile;
     }
 
@@ -118,14 +141,20 @@ public final class NeteaseApi {
         }
     }
 
-    /** Preserve the playlist order and load tracks omitted from the detail response. */
-    public List<JSONObject> tracks(long playlistId) throws IOException {
+    public JSONObject playlistDetail(long playlistId) throws IOException {
         if (playlistId <= 0) throw new IOException("歌单 ID 无效");
         JSONObject response = request("/api/v6/playlist/detail", json("id", playlistId,
                 "n", 100000, "s", 0), false);
         requireSuccess(response, "读取歌单歌曲");
         JSONObject playlist = response.optJSONObject("playlist");
         if (playlist == null) throw new IOException("歌单不可访问或已被删除");
+        return playlist;
+    }
+
+    /** Preserve the playlist order and load tracks omitted from the detail response. */
+    public List<JSONObject> tracks(long playlistId) throws IOException { return tracks(playlistDetail(playlistId)); }
+
+    public List<JSONObject> tracks(JSONObject playlist) throws IOException {
         LinkedHashMap<Long, JSONObject> songs = new LinkedHashMap<>();
         addSongs(songs, playlist.optJSONArray("tracks"));
         JSONArray trackIds = playlist.optJSONArray("trackIds");
@@ -157,6 +186,87 @@ public final class NeteaseApi {
             if (song != null) result.add(song);
         }
         return result;
+    }
+
+    /** liked is an account relation, not a song/detail field. */
+    public Set<Long> likedTracks(long userId) throws IOException {
+        if (userId <= 0) throw new IOException("用户 ID 无效");
+        JSONObject response = request("/api/song/like/get", json("uid", userId), false);
+        requireSuccess(response, "读取喜欢的歌曲");
+        JSONArray ids = response.optJSONArray("ids");
+        if (ids == null) throw new IOException("喜欢列表接口未返回歌曲 ID");
+        Set<Long> result = new LinkedHashSet<>();
+        for (int i = 0; i < ids.length(); i++) if (ids.optLong(i) > 0) result.add(ids.optLong(i));
+        return result;
+    }
+
+    public void likeTrack(long trackId, boolean liked) throws IOException {
+        if (trackId <= 0) throw new IOException("歌曲 ID 无效");
+        requireSuccess(request("/api/radio/like", json("alg", "itembased", "trackId", trackId,
+                "like", liked, "time", "3"), true), liked ? "喜欢歌曲" : "取消喜欢");
+    }
+
+    public JSONObject createPlaylist(String name, int privacy) throws IOException {
+        name = playlistName(name);
+        if (privacy != 0 && privacy != 10) throw new IOException("歌单隐私设置无效");
+        JSONObject response = request("/api/playlist/create", json("name", name, "privacy", Integer.toString(privacy), "type", "NORMAL"), true);
+        requireSuccess(response, "新建歌单");
+        JSONObject playlist = response.optJSONObject("playlist");
+        if (playlist == null || playlist.optLong("id") <= 0) throw new IOException("歌单可能已创建，但接口未返回歌单 ID，请先刷新确认");
+        return playlist;
+    }
+
+    private JSONObject ownPlaylist(long playlistId) throws IOException {
+        long userId = verifiedUserId > 0 ? verifiedUserId : profile().optLong("userId");
+        JSONObject playlist = playlistDetail(playlistId), creator = playlist.optJSONObject("creator");
+        if (creator == null || userId <= 0 || creator.optLong("userId") != userId) throw new IOException("只能管理自己的歌单");
+        return playlist;
+    }
+
+    public void deletePlaylist(long playlistId) throws IOException {
+        JSONObject playlist = ownPlaylist(playlistId);
+        if (playlist.optInt("specialType") == 5) throw new IOException("不能删除默认的喜欢歌单");
+        requireSuccess(request("/api/playlist/remove", json("ids", new JSONArray().put(playlistId).toString()), true), "删除歌单");
+    }
+
+    public void changePlaylistTrack(long playlistId, long trackId, boolean add) throws IOException {
+        if (trackId <= 0) throw new IOException("歌曲 ID 无效");
+        ownPlaylist(playlistId);
+        JSONArray ids = new JSONArray().put(Long.toString(trackId));
+        JSONObject payload = json("op", add ? "add" : "del", "pid", playlistId, "trackIds", ids.toString(), "imme", "true");
+        JSONObject response = request("/api/playlist/manipulate/tracks", payload, false);
+        // Mirror the upstream module's one specific 512 compatibility path.
+        if (response.optInt("code") == 512) {
+            ids.put(Long.toString(trackId));
+            response = request("/api/playlist/manipulate/tracks", json("op", add ? "add" : "del", "pid", playlistId, "trackIds", ids.toString(), "imme", "true"), false);
+        }
+        requireSuccess(response, add ? "添加到歌单" : "从歌单移除歌曲");
+    }
+
+    public void editPlaylist(long playlistId, String name, String description, JSONArray tags) throws IOException {
+        name = playlistName(name);
+        if (description == null) description = "";
+        if (description.length() > 10000 || tags == null || tags.length() > 3) throw new IOException("歌单简介或标签超过限制");
+        StringBuilder joined = new StringBuilder();
+        for (int i = 0; i < tags.length(); i++) {
+            String tag = tags.optString(i).trim();
+            if (tag.isEmpty() || tag.length() > 64 || tag.indexOf(';') >= 0) throw new IOException("歌单标签无效");
+            if (joined.length() > 0) joined.append(';'); joined.append(tag);
+        }
+        ownPlaylist(playlistId);
+        String descPath = "/api/playlist/desc/update", tagPath = "/api/playlist/tags/update", namePath = "/api/playlist/update/name";
+        JSONObject result = request("/api/batch", json(descPath, json("id", playlistId, "desc", description).toString(),
+                tagPath, json("id", playlistId, "tags", joined.toString()).toString(), namePath, json("id", playlistId, "name", name).toString()), false);
+        requireSuccess(result, "编辑歌单");
+        for (String path : new String[]{descPath, tagPath, namePath}) {
+            JSONObject item = result.optJSONObject(path);
+            if (item == null || item.optInt("code") != 200) throw new IOException("歌单信息未全部更新，部分字段可能已生效，请刷新确认");
+        }
+    }
+
+    private static String playlistName(String name) throws IOException {
+        if (name == null || name.trim().isEmpty() || name.length() > 40) throw new IOException("请输入 1–40 个字符的歌单名称");
+        return name.trim();
     }
 
     /** Desktop-style recommendation snapshot used by the Android landing page. */
@@ -218,6 +328,9 @@ public final class NeteaseApi {
             if (rows != null) for (int i = 0; i < rows.length(); i++) dailyTracks.put(rows.optJSONObject(i));
         }
         try {
+            if (banners.length() + playlists.length() + artists.length() + albums.length() + charts.length() + dailyTracks.length() == 0) {
+                throw new IOException("首页接口暂未返回可用内容，请稍后重试");
+            }
             return result.put("banners", banners).put("playlists", playlists).put("artists", artists)
                     .put("albums", albums).put("charts", charts).put("dailyTracks", dailyTracks);
         } catch (JSONException impossible) { throw new IOException("Cannot encode home data", impossible); }
@@ -310,7 +423,10 @@ public final class NeteaseApi {
         if (item == null) return new JSONObject();
         return json("id", item.optLong("id"), "name", item.optString("name", ""),
                 "picUrl", first(item, "coverImgUrl", "picUrl"), "coverImgUrl", first(item, "coverImgUrl", "picUrl"),
-                "trackCount", item.optInt("trackCount"), "copywriter", item.optString("copywriter", ""));
+                "trackCount", item.optInt("trackCount"), "copywriter", item.optString("copywriter", ""),
+                "creatorUserId", item.optLong("creatorUserId", item.optJSONObject("creator") == null ? 0 : item.optJSONObject("creator").optLong("userId")),
+                "subscribed", item.optBoolean("subscribed"), "privacy", item.optInt("privacy"), "description", item.optString("description"),
+                "tags", item.optJSONArray("tags") == null ? new JSONArray() : item.optJSONArray("tags"), "specialType", item.optInt("specialType"));
     }
 
     private static JSONObject albumSummary(JSONObject item) throws IOException {
@@ -399,6 +515,8 @@ public final class NeteaseApi {
     }
 
     private JSONObject request(String path, JSONObject payload, boolean weapi) throws IOException {
+        requireOnline();
+        if (transport != null) return transport.request(path, payload, weapi);
         HttpURLConnection connection = null;
         try {
             LinkedHashMap<String, String> effective;
@@ -467,6 +585,7 @@ public final class NeteaseApi {
                 requestCookies = cookieHeader(headerCookies);
             }
             String address = (weapi ? WEB + "/weapi/" : API + "/eapi/") + path.substring(5);
+            requireOnline();
             connection = (HttpURLConnection) new URL(address).openConnection();
             connection.setConnectTimeout(15000);
             connection.setReadTimeout(25000);
@@ -480,6 +599,7 @@ public final class NeteaseApi {
             connection.setDoOutput(true);
             byte[] bytes = form.getBytes(StandardCharsets.UTF_8);
             connection.setFixedLengthStreamingMode(bytes.length);
+            requireOnline();
             try (OutputStream output = connection.getOutputStream()) {
                 output.write(bytes);
             }

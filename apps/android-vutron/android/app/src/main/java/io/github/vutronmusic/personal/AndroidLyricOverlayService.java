@@ -195,7 +195,7 @@ public final class AndroidLyricOverlayService extends Service {
         active = this;
         if (Build.VERSION.SDK_INT >= 26) {
             NotificationManager manager = getSystemService(NotificationManager.class);
-            manager.createNotificationChannel(new NotificationChannel(CHANNEL, "Vutron Music - Mobile 歌词", NotificationManager.IMPORTANCE_LOW));
+            manager.createNotificationChannel(new NotificationChannel(CHANNEL, BuildConfig.APP_DISPLAY_NAME + " 歌词", NotificationManager.IMPORTANCE_LOW));
             startForeground(1907, notification());
         }
         windows = getSystemService(WindowManager.class);
@@ -236,8 +236,8 @@ public final class AndroidLyricOverlayService extends Service {
         else if (!LyricOverlaySettings.locked(this)) status = "拖动调整位置；锁定后默认允许点击下方";
         else if (LyricOverlaySettings.touchPassthroughPriority(this)) status = "已锁定并优先下方点击；仍无法点击时请临时隐藏";
         else status = "已锁定并保留完整不透明度；可能阻止下方点击";
-        return new Notification.Builder(this, CHANNEL).setSmallIcon(android.R.drawable.ic_menu_info_details)
-                .setContentTitle("Vutron Music - Mobile 桌面歌词").setContentText(status)
+        return (Build.VERSION.SDK_INT >= 26 ? new Notification.Builder(this, CHANNEL) : new Notification.Builder(this)).setSmallIcon(android.R.drawable.ic_menu_info_details)
+                .setContentTitle(BuildConfig.APP_DISPLAY_NAME + " 桌面歌词").setContentText(status)
                 .setOngoing(true).setOnlyAlertOnce(true)
                 .setContentIntent(PendingIntent.getActivity(this, 0, new Intent(this, MainActivity.class), PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE))
                 .addAction(android.R.drawable.ic_menu_view, hidden ? "立即恢复" : "恢复显示", notificationAction(ACTION_RESTORE, 11))
@@ -359,6 +359,7 @@ public final class AndroidLyricOverlayService extends Service {
     }
 
     private float lockedWindowOpacity() {
+        if (Build.VERSION.SDK_INT < 31) return 1f;
         InputManager input = getSystemService(InputManager.class);
         if (input == null) {
             Log.w(TAG, "Touch opacity limit unavailable; hiding locked surface until unlocked");
@@ -548,7 +549,7 @@ public final class AndroidLyricOverlayService extends Service {
         if (root != null && windows != null) try { windows.removeView(root); } catch (RuntimeException ignored) { }
         root = null;
         if (active == this) active = null;
-        stopForeground(STOP_FOREGROUND_REMOVE);
+        stopForeground(true);
         super.onDestroy();
     }
 

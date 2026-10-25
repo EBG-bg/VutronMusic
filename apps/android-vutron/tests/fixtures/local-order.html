@@ -1,0 +1,12 @@
+<!doctype html><html lang="zh-CN"><head><meta name="viewport" content="width=device-width,initial-scale=1"><style>:root{--color-text:#222;--color-body-bg:#fff;--color-secondary-bg:#f6f6f6;--color-secondary:#888;--color-primary:#1db9b5}#app{padding:16px 14px 160px;box-sizing:border-box}</style></head><body><div id="app"></div><script type="module">
+import { createApp, h, reactive } from 'vue'
+import LocalTrackList from '/src/components/LocalTrackList.vue'
+import { i18n } from '/src/platform/i18n'
+import '/src/style.css'
+const state = reactive({ query: '', tracks: Array.from({ length: 120 }, (_, index) => ({ id: index + 1, name: 'Track ' + index, artists: ['Artist'], localKey: String(index), localUri: 'content://test/' + index })) })
+window.orderHarness = { state, plays: [], orders: [] }
+createApp({ render: () => h(LocalTrackList, { tracks: state.tracks, collectionKey: 'folder:browser-test', query: state.query,
+  onPlay: (track, queue) => window.orderHarness.plays.push({ selected: track.name, queue: queue.map(row => row.name) }),
+  onOrderChange: keys => window.orderHarness.orders.push(keys) }) }).use(i18n).mount('#app')
+window.orderReady = true
+</script></body></html>

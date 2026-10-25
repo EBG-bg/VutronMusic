@@ -21,9 +21,12 @@ import repeat from '../../../../src/renderer/assets/icons/repeat.svg?url'
 import repeatOne from '../../../../src/renderer/assets/icons/repeat-1.svg?url'
 import shuffle from '../../../../src/renderer/assets/icons/shuffle.svg?url'
 import more from '../../../../src/renderer/assets/icons/more.svg?url'
+import heart from '../../../../src/renderer/assets/icons/heart.svg?url'
+import heartSolid from '../../../../src/renderer/assets/icons/heart-solid.svg?url'
+import plus from '../../../../src/renderer/assets/icons/plus.svg?url'
 
 // Timer means pause at the deadline, so it reuses the original pause symbol.
-const icons = { logo, library, search, settings, previous, next, play, pause, back, refresh, down, local, folder, lyrics, close, explore, list, repeat, repeatOne, shuffle, more, timer: pause }
+const icons = { logo, library, search, settings, previous, next, play, pause, back, refresh, down, local, folder, lyrics, close, explore, list, repeat, repeatOne, shuffle, more, heart, heartSolid, plus, timer: pause }
 const props = defineProps<{ name: keyof typeof icons }>()
 const iconStyle = computed(() => ({ '--original-icon': `url("${icons[props.name]}")` }))
 </script>

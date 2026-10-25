@@ -162,6 +162,18 @@ final class LocalFolderStore {
         return result;
     }
 
+    static synchronized void removeTree(Context context, String id) throws IOException {
+        JSONArray trees = loadTreeUris(context), kept = new JSONArray();
+        String removed = "";
+        for (int i = 0; i < trees.length(); i++) { String uri = trees.optString(i); if (id.equals(folderId(uri))) removed = uri; else kept.put(uri); }
+        if (removed.isEmpty()) throw new IOException("文件夹未授权或已移除");
+        if (!context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit().putString(KEY_TREE_URIS, kept.toString())
+                .putString(KEY_TREE_URI, kept.length() == 0 ? "" : kept.optString(kept.length() - 1)).commit()) throw new IOException("目录设置保存失败");
+        try { context.getContentResolver().releasePersistableUriPermission(Uri.parse(removed), Intent.FLAG_GRANT_READ_URI_PERMISSION); }
+        catch (SecurityException alreadyRevoked) { /* A revoked grant is already unavailable. */ }
+        LocalTrackStore.removeFolder(context, id);
+    }
+
     static String folderId(String uri) {
         return "folder:" + java.util.UUID.nameUUIDFromBytes(uri.getBytes(java.nio.charset.StandardCharsets.UTF_8));
     }
@@ -180,6 +192,10 @@ final class LocalFolderStore {
         }
         int count = 0;
         String id = folderId(uri);
+        boolean permissionGranted = false;
+        for (android.content.UriPermission permission : context.getContentResolver().getPersistedUriPermissions()) {
+            if (permission.isReadPermission() && uri.equals(permission.getUri().toString())) { permissionGranted = true; break; }
+        }
         JSONArray rows = LocalTrackStore.loadFolderIndex(context);
         for (int index = 0; index < rows.length(); index++) {
             JSONObject row = rows.optJSONObject(index);
@@ -187,7 +203,7 @@ final class LocalFolderStore {
         }
         JSONObject result = new JSONObject();
         try { result.put("id", id).put("name", name == null ? "本地文件夹" : name)
-                .put("uri", uri).put("trackCount", count); } catch (Exception ignored) { }
+                .put("uri", uri).put("trackCount", count).put("permissionGranted", permissionGranted); } catch (Exception ignored) { }
         return result;
     }
 
@@ -202,7 +218,7 @@ final class LocalFolderStore {
     static List<JSONObject> scanPersisted(Context context) {
         List<JSONObject> result = new ArrayList<>();
         JSONArray trees = loadTreeUris(context);
-        for (int index = 0; index < trees.length() && !Thread.currentThread().isInterrupted(); index++) {
+        for (int index = 0; index < trees.length() && !LibraryTaskRunner.isCancelled(); index++) {
             String uri = trees.optString(index);
             result.addAll(scanRegistered(context, uri));
         }
@@ -212,7 +228,7 @@ final class LocalFolderStore {
     static List<JSONObject> scanSelection(Context context, String selectedId) throws IOException {
         if (selectedId == null || selectedId.isEmpty()) {
             List<JSONObject> all = scanPersisted(context);
-            if (!Thread.currentThread().isInterrupted()) LocalTrackStore.saveFolderIndex(context, new JSONArray(all));
+            LibraryTaskRunner.checkCancelled(); LocalTrackStore.saveFolderIndex(context, new JSONArray(all));
             return all;
         }
         JSONArray trees = loadTreeUris(context);
@@ -230,7 +246,7 @@ final class LocalFolderStore {
             if (row != null && !selectedId.equals(row.optString("localFolderId"))) merged.put(row);
         }
         for (JSONObject row : tracks) merged.put(row);
-        if (!Thread.currentThread().isInterrupted()) LocalTrackStore.saveFolderIndex(context, merged);
+        LibraryTaskRunner.checkCancelled(); LocalTrackStore.saveFolderIndex(context, merged);
         return tracks;
     }
 
@@ -270,7 +286,7 @@ final class LocalFolderStore {
         visited.add(rootDocumentId);
 
         while (!queue.isEmpty() && result.size() < MAX_FILES && entriesSeen < MAX_ENTRIES
-                && !Thread.currentThread().isInterrupted()) {
+                && !LibraryTaskRunner.isCancelled()) {
             Node node = queue.removeFirst();
             if (node.depth > MAX_DEPTH) continue;
             Uri childrenUri;
@@ -286,7 +302,7 @@ final class LocalFolderStore {
                 int mimeColumn = cursor.getColumnIndex(DocumentsContract.Document.COLUMN_MIME_TYPE);
                 int sizeColumn = cursor.getColumnIndex(DocumentsContract.Document.COLUMN_SIZE);
                 int modifiedColumn = cursor.getColumnIndex(DocumentsContract.Document.COLUMN_LAST_MODIFIED);
-                while (!Thread.currentThread().isInterrupted() && cursor.moveToNext()
+                while (!LibraryTaskRunner.isCancelled() && cursor.moveToNext()
                         && result.size() < MAX_FILES && entriesSeen < MAX_ENTRIES) {
                     entriesSeen++;
                     if (idColumn < 0) continue;
@@ -313,6 +329,7 @@ final class LocalFolderStore {
                     JSONObject track = trackWithMetadata(context, fileUri, name, size, modified, cache);
                     if (track != null) {
                         result.add(track);
+                        if (result.size() % 25 == 0) LibraryTaskRunner.progress(result.size(), 0);
                         rememberMetadata(updatedCache, fileUri, size, modified, track);
                     }
                 }
@@ -321,7 +338,7 @@ final class LocalFolderStore {
             }
         }
         // An interrupted scan must not replace a complete cache with a partial one.
-        if (!Thread.currentThread().isInterrupted() && !result.isEmpty()) {
+        if (!LibraryTaskRunner.isCancelled() && !result.isEmpty()) {
             saveMetadataCache(context, treeUri, updatedCache);
         }
         return result;
@@ -380,7 +397,7 @@ final class LocalFolderStore {
         }
     }
 
-    private static JSONObject trackWithMetadata(Context context, Uri uri, String name,
+    static JSONObject trackWithMetadata(Context context, Uri uri, String name,
             long size, long modified, JSONObject cache) {
         JSONObject previous = cache.optJSONObject(uri.toString());
         if (previous != null && previous.optLong("size", -1) == size
@@ -402,11 +419,11 @@ final class LocalFolderStore {
         }
 
         JSONObject track = toTrack(uri, name);
-        if (track == null || Thread.currentThread().isInterrupted()) return track;
+        if (track == null || LibraryTaskRunner.isCancelled()) return track;
         MediaMetadataRetriever retriever = new MediaMetadataRetriever();
         try {
             retriever.setDataSource(context, uri);
-            if (Thread.currentThread().isInterrupted()) return track;
+            if (LibraryTaskRunner.isCancelled()) return track;
             String title = cleanTag(retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_TITLE));
             String artist = cleanTag(retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_ARTIST));
             String album = cleanTag(retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_ALBUM));
@@ -467,7 +484,7 @@ final class LocalFolderStore {
             byte[] buffer = new byte[8192];
             int count;
             while ((count = input.read(buffer)) != -1) {
-                if (Thread.currentThread().isInterrupted() || output.size() + count > MAX_CACHE_BYTES) {
+                if (LibraryTaskRunner.isCancelled() || output.size() + count > MAX_CACHE_BYTES) {
                     return new JSONObject();
                 }
                 output.write(buffer, 0, count);

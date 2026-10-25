@@ -9,6 +9,7 @@ on:
       - 'android/shared/**'
       - 'vendor/android-runtime/**'
       - 'scripts/build-mobile.*'
+      - 'scripts/mobile-build.cjs'
       - 'src/renderer/assets/**'
       - 'legal/**'
       - 'LICENSE'
@@ -45,9 +46,16 @@ jobs:
       - name: Check shared core
         working-directory: packages/core
         run: node --experimental-strip-types --test
+      - name: Desktop export checks
+        run: python -m unittest discover -s tools/tests -p test_export_desktop.py
+      - name: Media gateway checks
+        run: node --test vendor/android-runtime/tests/*.test.cjs
       - name: Build Mobile
         run: sh scripts/build-mobile.sh Debug
-      - name: Native unit checks
+      - name: Mobile behavior checks
+        working-directory: apps/android-vutron
+        run: node --test tests/*.test.cjs
+      - name: Android unit checks
         working-directory: apps/android-vutron/android
         run: sh ./gradlew :app:testDebugUnitTest --console=plain
       - name: Upload CI test package

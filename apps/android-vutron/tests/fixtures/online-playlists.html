@@ -1,0 +1,27 @@
+<!doctype html><html lang="zh-CN"><head><meta name="viewport" content="width=device-width,initial-scale=1"></head><body><div id="app"></div><script type="module">
+import { createApp, h, ref } from 'vue'
+import { createPinia } from 'pinia'
+import { i18n } from '/src/platform/i18n'
+import { useAndroidShellStore } from '/src/stores/androidShell'
+import { onlineTestBackend } from '/tests/fixtures/online-native.mock.js'
+import OnlinePlaylistDialog from '/src/components/OnlinePlaylistDialog.vue'
+import TrackActionMenu from '/src/components/TrackActionMenu.vue'
+import ActionDialog from '/src/components/ActionDialog.vue'
+import AppAboutView from '/src/components/AppAboutView.vue'
+import AppUpdateSettings from '/src/components/AppUpdateSettings.vue'
+import '/src/style.css'
+const pinia=createPinia(), menu=ref(false)
+const store=useAndroidShellStore(pinia)
+store.profile={ userId:7, nickname:'Browser User' }; store.localOnly=false
+store.playlists=structuredClone(onlineTestBackend.playlists)
+store.selectedPlaylist=store.playlists[0]; store.tracks=structuredClone(onlineTestBackend.tracks)
+window.onlineHarness={ store, backend:onlineTestBackend, openMenu(){menu.value=true} }
+createApp({render:()=>h('main',[
+  store.activeTab==='about'?h(AppAboutView):h(AppUpdateSettings,{onAbout:()=>store.navigateTo('about')}),
+  h('button',{id:'new-playlist',onClick:store.openCreateOnlinePlaylist},'New'),
+  h('button',{id:'more-playlist',onClick:()=>store.openOnlinePlaylistMore(store.selectedPlaylist)},'More'),
+  menu.value?h(TrackActionMenu,{track:{id:2,name:'Song',artists:['Singer'],playlistVolumeKey:'netease:42'},onClose:()=>menu.value=false}):null,
+  h(OnlinePlaylistDialog),h(ActionDialog)
+])}).use(pinia).use(i18n).mount('#app')
+window.onlineReady=true
+</script></body></html>

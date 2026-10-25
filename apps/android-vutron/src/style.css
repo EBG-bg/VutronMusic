@@ -13,6 +13,8 @@
   --line: color-mix(in srgb, var(--color-text) 9%, transparent);
   --shadow: 0 2px 8px rgb(0 0 0 / 4%);
 }
+.online-library-tools { display:flex; align-items:center; justify-content:flex-end; gap:8px; margin:8px 0 12px; }
+.online-library-tools button { display:flex; align-items:center; gap:6px; border-radius:10px; }
 * { box-sizing: border-box; }
 html, body, #app { width: 100%; min-width: 0; min-height: 100%; margin: 0; }
 html { overflow-x: clip; }
@@ -142,6 +144,9 @@ img[data-artwork-state='loading'] { filter: saturate(.65); }
 .app-header:has(.header-back) .brand-mark { display: none; }
 .brand-copy p { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .header-refresh { flex-shrink: 0; }
+.sidebar-managed-row { display: flex; align-items: center; gap: 4px; }.sidebar-managed-row > button:first-child { flex: 1; min-width: 0; }.sidebar-managed-row > .collection-delete { width: 34px; height: 34px; flex: 0 0 34px; justify-content: center; padding: 8px; border-radius: 10px; }
+.header-refresh.is-refreshing .original-icon { animation: header-refresh-spin .8s linear infinite; }
+@keyframes header-refresh-spin { to { transform: rotate(360deg); } }
 .page-stage { transform-origin: 50% 0; }
 .page-forward-enter-active, .page-back-enter-active, .player-open-enter-active { transition: opacity .24s ease, transform .28s cubic-bezier(.2,.7,.25,1); }
 .page-forward-leave-active, .page-back-leave-active, .player-open-leave-active { transition: opacity .12s ease, transform .14s ease; }

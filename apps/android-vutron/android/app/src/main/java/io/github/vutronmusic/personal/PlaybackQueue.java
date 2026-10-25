@@ -85,6 +85,33 @@ final class PlaybackQueue {
             return result;
         }
         Snapshot clearNext() { return new Snapshot(token, songs, index, new JSONArray(), insertedPlaying); }
+        Snapshot withoutMatching(java.util.function.Predicate<JSONObject> removed) {
+            JSONArray kept = new JSONArray(), pending = new JSONArray(); int cursor = index;
+            for (int i = 0; i < songs.length(); i++) {
+                JSONObject row = songs.optJSONObject(i);
+                if (row != null && removed.test(row)) { if (i < index) cursor--; }
+                else if (row != null) kept.put(row);
+            }
+            for (int i = 0; i < upNext.length(); i++) { JSONObject row = upNext.optJSONObject(i); if (row != null && !removed.test(row)) pending.put(row); }
+            return new Snapshot(UUID.randomUUID().toString(), kept, cursor, pending, insertedPlaying && current() != null && !removed.test(current()));
+        }
+        Snapshot reorderCollection(String collectionId, JSONArray orderedKeys) throws Exception {
+            java.util.Map<String, Integer> ranks = new java.util.HashMap<>();
+            for (int i = 0; i < orderedKeys.length(); i++) ranks.put(orderedKeys.getString(i), i);
+            java.util.List<JSONObject> rows = new java.util.ArrayList<>();
+            JSONObject anchor = index >= 0 && index < songs.length() ? songs.optJSONObject(index) : null;
+            for (int i = 0; i < songs.length(); i++) rows.add(songs.getJSONObject(i));
+            rows.sort(java.util.Comparator.comparingInt(row -> {
+                boolean belongs = "local:folder".equals(collectionId) ? !row.optString("localFolderId").isEmpty() : LocalLibraryIds.inCollection(row, collectionId);
+                return belongs ? ranks.getOrDefault(LocalLibraryIds.key(row), Integer.MAX_VALUE) : Integer.MAX_VALUE;
+            }));
+            JSONArray sorted = new JSONArray(); int cursor = index;
+            for (int i = 0; i < rows.size(); i++) { sorted.put(rows.get(i)); if (rows.get(i) == anchor) cursor = i; }
+            boolean changed = false;
+            for (int i = 0; i < rows.size(); i++) if (rows.get(i) != songs.optJSONObject(i)) { changed = true; break; }
+            if (!changed) return this;
+            return new Snapshot(UUID.randomUUID().toString(), sorted, cursor, upNext, insertedPlaying);
+        }
         String encode() throws Exception {
             return new JSONObject().put("token", token).put("songs", songs).put("upNext", upNext)
                     .put("index", index).put("insertedPlaying", insertedPlaying).toString();
@@ -125,8 +152,9 @@ final class PlaybackQueue {
             if (output != null) file.failWrite(output);
             throw failure;
         }
-        preferences(context).edit().putString("queueToken", next.token).putInt("queueIndex", next.index)
-                .putInt("queueCount", next.count()).putInt("upNextCount", next.upNext.length()).apply();
+        if (!preferences(context).edit().putString("queueToken", next.token).putInt("queueIndex", next.index)
+                .putInt("queueCount", next.count()).putInt("upNextCount", next.upNext.length()).commit())
+            throw new java.io.IOException("播放队列索引保存失败");
         cached = next;
     }
 

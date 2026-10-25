@@ -66,7 +66,7 @@ public final class AndroidPlaybackService extends Service {
     private MediaSession session;
     private AudioManager audio;
     private AudioFocusRequest focusRequest;
-    private String title = "Vutron Music - Mobile";
+    private String title = BuildConfig.APP_DISPLAY_NAME;
     private String artist = "";
     private long trackId;
     private long duration;
@@ -74,6 +74,7 @@ public final class AndroidPlaybackService extends Service {
     private boolean playing;
     private boolean desiredPlayback;
     private boolean playerPrepared;
+    private boolean remotePlayback;
     private boolean buffering;
     private boolean destroyed;
     private boolean urlLookupPending;
@@ -88,6 +89,7 @@ public final class AndroidPlaybackService extends Service {
     private Bitmap artwork;
     private String artworkUrl = "";
     private int artworkGeneration;
+    private volatile HttpURLConnection artworkConnection;
     private Handler progressHandler;
     private final ExecutorService urlWorker = Executors.newFixedThreadPool(2);
     private final ExecutorService artworkWorker = Executors.newSingleThreadExecutor();
@@ -125,6 +127,17 @@ public final class AndroidPlaybackService extends Service {
     static boolean isActive() {
         AndroidPlaybackService service = activeInstance;
         return service != null && !service.destroyed;
+    }
+
+    static void enforceLocalOnly() {
+        AndroidPlaybackService service = activeInstance;
+        if (service == null || service.destroyed) return;
+        HttpURLConnection connection = service.artworkConnection;
+        if (connection != null) connection.disconnect();
+        service.progressHandler.post(() -> {
+            if (service.destroyed || !LocalOnlyMode.enabled(service)) return;
+            if (service.remotePlayback || service.urlLookupPending) service.stopPlayback(false);
+        });
     }
 
     static int getMode(Context context) {
@@ -208,6 +221,55 @@ public final class AndroidPlaybackService extends Service {
         });
     }
 
+    static void reorderLocalQueue(Context context, String collectionId, org.json.JSONArray keys, QueueResult result) {
+        new Handler(Looper.getMainLooper()).post(() -> {
+            try {
+                PlaybackQueue.Snapshot current = PlaybackQueue.load(context);
+                if (current == null) { result.success(null); return; }
+                PlaybackQueue.Snapshot next = current.reorderCollection(collectionId, keys);
+                if (next == current) { result.success(current); return; }
+                PlaybackQueue.persist(context, next);
+                AndroidPlaybackService service = activeInstance;
+                if (service != null && !service.destroyed) { service.queue = next; service.publish(); }
+                result.success(next);
+            } catch (Exception error) { result.failure(error); }
+        });
+    }
+
+    /** Returns false before any mutation when the caller has not confirmed stopping an affected track. */
+    static java.util.concurrent.Future<Boolean> prepareLibraryRemoval(Context context,
+            java.util.function.Predicate<JSONObject> removed, boolean stopConfirmed, boolean clearQueueWhenCurrent) {
+        java.util.concurrent.FutureTask<Boolean> result = new java.util.concurrent.FutureTask<>(() -> {
+                android.content.SharedPreferences preferences = context.getSharedPreferences(PLAYBACK_PREFS, MODE_PRIVATE);
+                JSONObject current = new JSONObject(preferences.getString("current_track", "{}"));
+                boolean affectsCurrent = removed.test(current);
+                if (affectsCurrent && !stopConfirmed) return false;
+                PlaybackQueue.Snapshot snapshot = PlaybackQueue.load(context);
+                AndroidPlaybackService service = activeInstance;
+                boolean active = service != null && !service.destroyed;
+                if (affectsCurrent) {
+                    if (active) service.stopPlayback(true);
+                    else {
+                        PlaybackQueue.clear(context);
+                        preferences.edit().remove(LAST_TRACK_ID).remove(LAST_POSITION).remove(LAST_DURATION)
+                                .remove(LAST_TITLE).remove(LAST_ARTIST).remove("current_track").remove("error")
+                                .putLong("trackId", 0).putLong("duration", 0).putInt("position", 0)
+                                .putString("title", "").putString("artist", "").putBoolean("playing", false)
+                                .putBoolean("loading", false).putBoolean(LAST_PLAYING, false).apply();
+                    }
+                }
+                if (snapshot != null) {
+                    PlaybackQueue.Snapshot updated = snapshot.withoutMatching(removed);
+                    if (affectsCurrent && clearQueueWhenCurrent || updated.count() == 0 && updated.upNext.length() == 0) {
+                        PlaybackQueue.clear(context); if (active) service.queue = null;
+                    } else { PlaybackQueue.persist(context, updated); if (active) service.queue = updated; }
+                }
+                return true;
+        });
+        new Handler(Looper.getMainLooper()).post(result);
+        return result;
+    }
+
     /** Apply the old personal edition's persistent track and playlist gains immediately. */
     public static void onVolumeSettingsChanged(Context context) {
         AndroidPlaybackService service = activeInstance;
@@ -239,7 +301,7 @@ public final class AndroidPlaybackService extends Service {
 
     private void onSleepTimerCleared() {
         if (player == null && !urlLookupPending) {
-            stopForeground(STOP_FOREGROUND_REMOVE);
+            stopForeground(true);
             stopSelf();
         }
     }
@@ -295,7 +357,7 @@ public final class AndroidPlaybackService extends Service {
         progressHandler.post(progressTicker);
         audio = getSystemService(AudioManager.class);
         NotificationManager notifications = getSystemService(NotificationManager.class);
-        notifications.createNotificationChannel(new NotificationChannel(CHANNEL, "Vutron Music - Mobile 播放", NotificationManager.IMPORTANCE_LOW));
+        if (Build.VERSION.SDK_INT >= 26) notifications.createNotificationChannel(new NotificationChannel(CHANNEL, BuildConfig.APP_DISPLAY_NAME + " 播放", NotificationManager.IMPORTANCE_LOW));
         AudioAttributes attributes = new AudioAttributes.Builder().setUsage(AudioAttributes.USAGE_MEDIA)
                 .setContentType(AudioAttributes.CONTENT_TYPE_MUSIC).build();
         session = new MediaSession(this, "VutronMusicAndroid");
@@ -386,7 +448,7 @@ public final class AndroidPlaybackService extends Service {
         urlLookupPending = true;
         trackId = id;
         trackMetadata = selected;
-        title = selected.optString("name", "Vutron Music - Mobile");
+        title = selected.optString("name", BuildConfig.APP_DISPLAY_NAME);
         artist = PlaybackRequest.artistText(selected);
         duration = selected.optLong("duration", selected.optLong("dt", 0));
         PlaybackQueue.cursor(this, queue);
@@ -443,13 +505,17 @@ public final class AndroidPlaybackService extends Service {
         } else {
             preferences.edit().putBoolean(LAST_PLAYING, false).putBoolean("playing", false).apply();
             playing = false;
-            stopForeground(STOP_FOREGROUND_REMOVE);
+            stopForeground(true);
             stopSelf();
         }
     }
 
     private void startTrack(Intent intent) {
         String url = intent.getStringExtra("url");
+        boolean remote = url != null && (url.startsWith("http://") || url.startsWith("https://"));
+        if (remote && LocalOnlyMode.enabled(this)) {
+            publishError("本地模式下仅可播放本地文件和已完成缓存"); return;
+        }
         if (!isSupportedSource(url)) {
             publishError("播放地址无效"); stopPlayback(); return;
         }
@@ -469,7 +535,7 @@ public final class AndroidPlaybackService extends Service {
         releasePlayer();
         playing = false;
         int token = ++generation;
-        title = intent.getStringExtra("title"); if (title == null) title = "Vutron Music - Mobile";
+        title = intent.getStringExtra("title"); if (title == null) title = BuildConfig.APP_DISPLAY_NAME;
         artist = intent.getStringExtra("artist"); if (artist == null) artist = "";
         trackId = requestedTrackId;
         trackMetadata = readTrackMetadata(intent, requestedTrackId);
@@ -483,12 +549,16 @@ public final class AndroidPlaybackService extends Service {
                 .putLong(LAST_DURATION, duration).putString(LAST_TITLE, title).putString(LAST_ARTIST, artist)
                 .putBoolean(LAST_PLAYING, desiredPlayback).apply();
         playerPrepared = false;
+        remotePlayback = remote;
         MediaPlayer candidate = new MediaPlayer(); player = candidate;
         try {
             candidate.setAudioAttributes(new AudioAttributes.Builder().setUsage(AudioAttributes.USAGE_MEDIA)
                     .setContentType(AudioAttributes.CONTENT_TYPE_MUSIC).build());
             candidate.setOnPreparedListener(prepared -> {
                 if (destroyed || player != prepared || token != generation) return;
+                if (remotePlayback && LocalOnlyMode.enabled(this)) {
+                    publishError("已切换为本地模式"); return;
+                }
                 playerPrepared = true;
                 duration = Math.max(0, prepared.getDuration());
                 if (resumePosition > 0 && duration > 0) {
@@ -528,6 +598,7 @@ public final class AndroidPlaybackService extends Service {
             if (url.startsWith("content://") || url.startsWith("file://")) {
                 candidate.setDataSource(this, Uri.parse(url));
             } else if (url.startsWith("http://") || url.startsWith("https://")) {
+                LocalOnlyMode.requireOnline(this);
                 candidate.setDataSource(this, Uri.parse(url), sourceHeaders(intent));
             } else {
                 candidate.setDataSource(url);
@@ -637,7 +708,7 @@ public final class AndroidPlaybackService extends Service {
             playing = false;
             publish();
             if (sleepTimerRemainingMs(this) <= 0L) {
-                stopForeground(STOP_FOREGROUND_REMOVE);
+                stopForeground(true);
                 stopSelf();
             }
             return;
@@ -690,6 +761,7 @@ public final class AndroidPlaybackService extends Service {
 
     private void resume() {
         resumeOnFocusGain = false;
+        if (remotePlayback && LocalOnlyMode.enabled(this)) { publishError("已切换为本地模式"); return; }
         desiredPlayback = true;
         if (player == null) { resumeOrRestore(); return; }
         if (!playerPrepared) { persistPosition(); return; }
@@ -719,12 +791,13 @@ public final class AndroidPlaybackService extends Service {
         }
         publish();
         if (clearRemembered) clearRememberedPlayback();
-        stopForeground(STOP_FOREGROUND_REMOVE);
+        stopForeground(true);
     }
 
     private void releasePlayer() {
         MediaPlayer old = player; player = null;
         playerPrepared = false;
+        remotePlayback = false;
         buffering = false;
         cacheLocation = null;
         if (old != null) try { old.release(); } catch (RuntimeException ignored) { }
@@ -808,8 +881,8 @@ public final class AndroidPlaybackService extends Service {
     }
 
     private Notification notification() {
-        Notification.Builder builder = new Notification.Builder(this, CHANNEL).setSmallIcon(android.R.drawable.ic_media_play)
-                .setContentTitle(title).setContentText(artist.isEmpty() ? "Vutron Music - Mobile" : artist)
+        Notification.Builder builder = (Build.VERSION.SDK_INT >= 26 ? new Notification.Builder(this, CHANNEL) : new Notification.Builder(this)).setSmallIcon(android.R.drawable.ic_media_play)
+                .setContentTitle(title).setContentText(artist.isEmpty() ? BuildConfig.APP_DISPLAY_NAME : artist)
                 .setContentIntent(PendingIntent.getActivity(this, 0, new Intent(this, MainActivity.class)
                         .setFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP | Intent.FLAG_ACTIVITY_CLEAR_TOP),
                         PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE))
@@ -861,6 +934,10 @@ public final class AndroidPlaybackService extends Service {
     private Bitmap decodeArtwork(String source) {
         HttpURLConnection connection = null;
         try {
+            if (source.startsWith("https://") || source.startsWith("http://")) {
+                source = ArtworkCache.resolve(this, source);
+                if (source.isEmpty()) return null;
+            }
             byte[] bytes;
             if (source.startsWith("file://") || source.startsWith("content://")) {
                 InputStream sourceInput = source.startsWith("file://")
@@ -872,12 +949,15 @@ public final class AndroidPlaybackService extends Service {
                     bytes = output.toByteArray();
                 }
             } else if (source.startsWith("https://") || source.startsWith("http://")) {
+                LocalOnlyMode.requireOnline(this);
                 connection = (HttpURLConnection) new URL(ArtworkSource.requestUrl(source)).openConnection();
+                artworkConnection = connection;
                 connection.setConnectTimeout(8000);
                 connection.setReadTimeout(12000);
                 connection.setInstanceFollowRedirects(true);
                 connection.setRequestProperty("User-Agent", "Mozilla/5.0 (Linux; Android 13) AppleWebKit/537.36 Chrome/131.0.0.0 Mobile Safari/537.36");
                 connection.setRequestProperty("Referer", "https://music.163.com/");
+                LocalOnlyMode.requireOnline(this);
                 if (connection.getResponseCode() < 200 || connection.getResponseCode() >= 300) return null;
                 try (InputStream input = connection.getInputStream(); ByteArrayOutputStream output = new ByteArrayOutputStream()) {
                     copyImage(input, output);
@@ -896,7 +976,10 @@ public final class AndroidPlaybackService extends Service {
             options.inPreferredConfig = Bitmap.Config.RGB_565;
             return BitmapFactory.decodeByteArray(bytes, 0, bytes.length, options);
         } catch (Exception ignored) { return null; }
-        finally { if (connection != null) connection.disconnect(); }
+        finally {
+            if (connection != null) connection.disconnect();
+            if (artworkConnection == connection) artworkConnection = null;
+        }
     }
 
     private static void copyImage(InputStream input, ByteArrayOutputStream output) throws java.io.IOException {

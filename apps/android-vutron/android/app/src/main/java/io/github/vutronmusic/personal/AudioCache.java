@@ -225,7 +225,11 @@ public final class AudioCache {
     public static void setEnabled(Context context, boolean enabled) {
         context.getApplicationContext().getSharedPreferences(PREFS, Context.MODE_PRIVATE)
                 .edit().putBoolean("enabled", enabled).apply();
-        if (!enabled) synchronized (LOCK) {
+        if (!enabled) cancelNetworkDownloads();
+    }
+
+    static void cancelNetworkDownloads() {
+        synchronized (LOCK) {
             generation++;
             pending.clear();
             if (active != null) active.cancel();
@@ -279,6 +283,7 @@ public final class AudioCache {
 
     private static boolean enqueue(Context context, JSONObject song, JSONObject location, boolean manual) {
         Context app = context.getApplicationContext();
+        if (LocalOnlyMode.enabled(app)) return false;
         if ((!manual && !isEnabled(app)) || song == null || location == null || song.optLong("id") <= 0) return false;
         synchronized (LOCK) {
             if (!initialize(app)) return false;
@@ -357,6 +362,27 @@ public final class AudioCache {
         }
     }
 
+    /** Removes only this module's audio and index; artwork, lyrics and playlist snapshots are retained. */
+    public static boolean remove(Context context, long songId) throws IOException {
+        if (songId <= 0) throw new IOException("缓存歌曲 ID 无效");
+        synchronized (LOCK) {
+            if (!initialize(context)) throw new IOException("无法读取音频缓存");
+            if (protectedPlaybackSongId() == songId) return false;
+            pending.remove(songId);
+            if (active != null && active.songId == songId) active.cancel();
+            Entry removed = entries.remove(songId);
+            if (removed == null) return true;
+            try { saveIndex(); }
+            catch (IOException failure) { entries.put(songId, removed); throw failure; }
+            if (!deleteOwned(removed.file)) {
+                deferredDeletes.put(removed.file, 0L);
+                scheduleCapacityTrim(context.getApplicationContext(), 1000);
+                throw new IOException("缓存索引已移除，音频文件清理未完成，请稍后重试");
+            }
+            return true;
+        }
+    }
+
     /** Call on a worker. Cancels in-flight jobs before deleting only this module's generated files. */
     public static void clear(Context context) throws IOException {
         synchronized (LOCK) {
@@ -426,7 +452,7 @@ public final class AudioCache {
             String encoding = connection.getHeaderField("Content-Encoding");
             if (encoding != null && !encoding.isEmpty() && !"identity".equalsIgnoreCase(encoding))
                 throw new IOException("Unexpected encoded audio response");
-            long length = connection.getContentLengthLong();
+            long length = connection.getContentLength();
             long fileLimit = Math.min(MAX_FILE_BYTES, capacityBytes);
             if (length == 0 || length > fileLimit || job.expectedSize > fileLimit)
                 throw new IOException("Audio file exceeds cache limit or is empty");
@@ -499,6 +525,7 @@ public final class AudioCache {
             connection.setRequestProperty("Accept", "audio/*,application/octet-stream;q=0.9,*/*;q=0.1");
             for (Map.Entry<String, String> header : job.headers.entrySet())
                 connection.setRequestProperty(header.getKey(), header.getValue());
+            LocalOnlyMode.requireOnline(job.context);
             int code = connection.getResponseCode();
             if (code != 301 && code != 302 && code != 303 && code != 307 && code != 308) return connection;
             String target = connection.getHeaderField("Location");
@@ -864,6 +891,7 @@ public final class AudioCache {
     }
 
     private static void check(Download job, long deadline) throws IOException {
+        if (job != null) LocalOnlyMode.requireOnline(job.context);
         if (Thread.currentThread().isInterrupted() || job != null && job.cancelled)
             throw new InterruptedIOException("Audio cache cancelled");
         if (SystemClock.elapsedRealtime() >= deadline) throw new InterruptedIOException("Audio cache timed out");

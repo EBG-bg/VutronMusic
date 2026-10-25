@@ -8,9 +8,13 @@ final class LyricPayload {
     private LyricPayload() { }
 
     static JSONObject encode(LyricRepository.Lyrics lyrics) throws org.json.JSONException {
-        boolean wordTimed = false;
-        for (LyricTimeline.Line line : lyrics.original.lines) if (!line.words.isEmpty()) { wordTimed = true; break; }
-        String original = originalLrc(lyrics.original);
+        boolean wordTimed = false, allTimed = true;
+        for (LyricTimeline.Line line : lyrics.original.lines) {
+            if (!line.words.isEmpty()) wordTimed = true;
+            else if (!line.text.isEmpty()) allTimed = false;
+        }
+        String original = wordTimed && !allTimed ? enhancedLrc(lyrics.original) : originalLrc(lyrics.original);
+        wordTimed = wordTimed && allTimed;
         String translation = translationLrc(lyrics);
         return new JSONObject().put("lrc", wordTimed ? "" : original)
                 .put("tlyric", wordTimed ? "" : translation)
@@ -21,6 +25,21 @@ final class LyricPayload {
     static String originalLrc(LyricTimeline timeline) {
         StringBuilder result = new StringBuilder();
         for (LyricTimeline.Line line : timeline.lines) result.append(stamp(line.time)).append(line.text).append('\n');
+        return result.toString();
+    }
+
+    private static String enhancedLrc(LyricTimeline timeline) {
+        StringBuilder result = new StringBuilder();
+        for (LyricTimeline.Line line : timeline.lines) {
+            result.append(stamp(line.time));
+            if (line.words.isEmpty()) result.append(line.text);
+            else for (LyricTimeline.Word word : line.words) {
+                result.append(stamp(word.start).replace('[', '<').replace(']', '>'))
+                        .append(line.text, word.first, word.end)
+                        .append(stamp(word.start + word.duration).replace('[', '<').replace(']', '>'));
+            }
+            result.append('\n');
+        }
         return result.toString();
     }
 

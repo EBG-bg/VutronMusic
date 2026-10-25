@@ -1,7 +1,7 @@
 {
   "product": "Vutron Music - Mobile",
-  "release": "1.0.0",
-  "reviewDate": "2026-10-25",
+  "release": "1.0.1",
+  "reviewDate": "2026-10-26",
   "scope": "Installed frontend modules, embedded Node source tree, resolved Android runtime graph and retained JNI binaries; build-only dependencies are not asserted to ship.",
   "packages": [
     {
@@ -84,6 +84,92 @@
         "type": "git",
         "url": "git+https://github.com/ionic-team/capacitor-plugins.git"
       }
+    },
+    {
+      "category": "frontend",
+      "name": "vue-i18n",
+      "version": "11.4.16",
+      "declaredLicense": "MIT",
+      "source": "apps/android-vutron/node_modules/vue-i18n",
+      "licenseFiles": [
+        "legal/licenses/frontend/vue-i18n-11.4.16/LICENSE"
+      ],
+      "repository": {
+        "type": "git",
+        "url": "git+https://github.com/intlify/vue-i18n.git",
+        "directory": "packages/vue-i18n"
+      }
+    },
+    {
+      "category": "frontend",
+      "name": "@intlify/shared",
+      "version": "11.4.16",
+      "declaredLicense": "MIT",
+      "source": "apps/android-vutron/node_modules/@intlify/shared",
+      "licenseFiles": [
+        "legal/licenses/frontend/_intlify_shared-11.4.16/LICENSE"
+      ],
+      "repository": {
+        "type": "git",
+        "url": "git+https://github.com/intlify/vue-i18n.git",
+        "directory": "packages/shared"
+      }
+    },
+    {
+      "category": "frontend",
+      "name": "@intlify/core-base",
+      "version": "11.4.16",
+      "declaredLicense": "MIT",
+      "source": "apps/android-vutron/node_modules/@intlify/core-base",
+      "licenseFiles": [
+        "legal/licenses/frontend/_intlify_core-base-11.4.16/LICENSE"
+      ],
+      "repository": {
+        "type": "git",
+        "url": "git+https://github.com/intlify/vue-i18n.git",
+        "directory": "packages/core"
+      }
+    },
+    {
+      "category": "frontend",
+      "name": "@intlify/message-compiler",
+      "version": "11.4.16",
+      "declaredLicense": "MIT",
+      "source": "apps/android-vutron/node_modules/@intlify/message-compiler",
+      "licenseFiles": [
+        "legal/licenses/frontend/_intlify_message-compiler-11.4.16/LICENSE"
+      ],
+      "repository": {
+        "type": "git",
+        "url": "git+https://github.com/intlify/vue-i18n.git",
+        "directory": "packages/message-compiler"
+      }
+    },
+    {
+      "category": "frontend",
+      "name": "@intlify/devtools-types",
+      "version": "11.4.16",
+      "declaredLicense": "MIT",
+      "source": "apps/android-vutron/node_modules/@intlify/devtools-types",
+      "licenseFiles": [
+        "legal/licenses/frontend/_intlify_devtools-types-11.4.16/LICENSE"
+      ],
+      "repository": {
+        "type": "git",
+        "url": "git+https://github.com/intlify/vue-i18n.git",
+        "directory": "packages/devtools-types"
+      }
+    },
+    {
+      "category": "frontend",
+      "name": "source-map-js",
+      "version": "1.2.2",
+      "declaredLicense": "BSD-3-Clause",
+      "source": "apps/android-vutron/node_modules/source-map-js",
+      "licenseFiles": [
+        "legal/licenses/frontend/source-map-js-1.2.2/LICENSE"
+      ],
+      "repository": "7rulnik/source-map-js"
     },
     {
       "category": "frontend",
@@ -721,6 +807,21 @@
         "type": "git",
         "url": "https://github.com/npm/wrappy"
       }
+    },
+    {
+      "category": "android-desugaring",
+      "name": "com.android.tools:desugar_jdk_libs_nio",
+      "version": "2.1.5",
+      "declaredLicense": "GPL version 2 with the Classpath Exception; retained per-file terms apply",
+      "licenseFiles": [
+        "legal/licenses/java-compat/LICENSE",
+        "legal/licenses/java-compat/ASSEMBLY_EXCEPTION",
+        "legal/licenses/java-compat/ADDITIONAL_LICENSE_INFO"
+      ],
+      "source": "vendor/java-compat/desugar-jdk-2.1.5-source.zip",
+      "sourceSha256": "b6fc9a0d46dacd3948bd06d6d52bc1f727680ca2c0045aa008edc395ca2cbee9",
+      "sourceRevision": "092407c51c3eaaaa9e46f7b7e436dc642f614064",
+      "repository": "https://github.com/google/desugar_jdk_libs"
     },
     {
       "category": "android-runtime",
@@ -1597,52 +1698,52 @@
     {
       "file": "legal/licenses/frontend/_vue_devtools-api-6.6.4/LICENSE",
       "source": "https://raw.githubusercontent.com/vuejs/devtools-v6/master/LICENSE",
-      "retrieved": "2026-10-25"
+      "retrieved": "2026-10-26"
     },
     {
       "file": "legal/licenses/YesPlayMusic-MIT.txt",
       "source": "https://raw.githubusercontent.com/qier222/YesPlayMusic/master/LICENSE",
-      "retrieved": "2026-10-25"
+      "retrieved": "2026-10-26"
     },
     {
       "file": "legal/licenses/Apache-2.0.txt",
       "source": "https://www.apache.org/licenses/LICENSE-2.0.txt",
-      "retrieved": "2026-10-25"
+      "retrieved": "2026-10-26"
     },
     {
       "file": "legal/licenses/Kotlin-APACHE-2.0.txt",
       "source": "https://raw.githubusercontent.com/JetBrains/kotlin/v1.9.25/license/LICENSE.txt",
-      "retrieved": "2026-10-25"
+      "retrieved": "2026-10-26"
     },
     {
       "file": "legal/licenses/Kotlin-NOTICE.txt",
       "source": "https://raw.githubusercontent.com/JetBrains/kotlin/v1.9.25/license/NOTICE.txt",
-      "retrieved": "2026-10-25"
+      "retrieved": "2026-10-26"
     },
     {
       "file": "legal/licenses/Kotlinx-Coroutines-APACHE-2.0.txt",
       "source": "https://raw.githubusercontent.com/Kotlin/kotlinx.coroutines/1.6.4/LICENSE.txt",
-      "retrieved": "2026-10-25"
+      "retrieved": "2026-10-26"
     },
     {
       "file": "legal/licenses/Cordova-Android-APACHE-2.0.txt",
       "source": "https://raw.githubusercontent.com/apache/cordova-android/10.1.1/LICENSE",
-      "retrieved": "2026-10-25"
+      "retrieved": "2026-10-26"
     },
     {
       "file": "legal/licenses/Cordova-Android-NOTICE.txt",
       "source": "https://raw.githubusercontent.com/apache/cordova-android/10.1.1/NOTICE",
-      "retrieved": "2026-10-25"
+      "retrieved": "2026-10-26"
     },
     {
       "file": "legal/licenses/ZXing-APACHE-2.0.txt",
       "source": "https://raw.githubusercontent.com/zxing/zxing/zxing-3.5.3/LICENSE",
-      "retrieved": "2026-10-25"
+      "retrieved": "2026-10-26"
     },
     {
       "file": "legal/licenses/ZXing-NOTICE.txt",
       "source": "https://raw.githubusercontent.com/zxing/zxing/zxing-3.5.3/NOTICE",
-      "retrieved": "2026-10-25"
+      "retrieved": "2026-10-26"
     }
   ],
   "unresolvedLicenseFiles": []

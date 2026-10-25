@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8"?>
+<data-extraction-rules>
+    <cloud-backup disableIfNoEncryptionCapabilities="true">
+        <include domain="sharedpref" path="lyric_overlay.xml" />
+        <include domain="sharedpref" path="playback_volume.xml" />
+        <include domain="sharedpref" path="audio_cache_settings.xml" />
+        <include domain="sharedpref" path="artwork_cache_settings.xml" />
+        <include domain="sharedpref" path="local_folder.xml" />
+        <include domain="sharedpref" path="vutron_music_network.xml" />
+    </cloud-backup>
+    <device-transfer>
+        <include domain="sharedpref" path="lyric_overlay.xml" />
+        <include domain="sharedpref" path="playback_volume.xml" />
+        <include domain="sharedpref" path="audio_cache_settings.xml" />
+        <include domain="sharedpref" path="artwork_cache_settings.xml" />
+        <include domain="sharedpref" path="local_folder.xml" />
+        <include domain="sharedpref" path="vutron_music_network.xml" />
+    </device-transfer>
+</data-extraction-rules>

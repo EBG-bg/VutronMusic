@@ -1,18 +1,21 @@
 import { computed, ref, shallowRef } from 'vue'
 import { defineStore } from 'pinia'
 import { createLiveSettingWriter } from '../platform/liveSettingWrites'
+import { createAuthSession } from './domains/authSession'
+import { createLocalLibrary } from './domains/localLibrary'
+import { createNeteaseLibrary } from './domains/neteaseLibrary'
+import { libraryMutationBusy } from '../platform/libraryActivity'
 import { selectLyricFamily, type LyricFamily } from '@vutronmusic/core/lyrics'
 import {
   vutronPlugin,
   type VutronCacheStatus,
   type VutronHomeData,
   type VutronLocalTrack,
-  type VutronLocalLibrary,
   type VutronLocalCollection,
   type VutronLyricOverlaySettings,
   type VutronPlaybackState,
   type VutronPlaylist,
-  type VutronProfile,
+  type VutronOnlineLibrary,
   type VutronSearchCategory,
   type VutronSearchResult,
   type VutronTrack,
@@ -23,7 +26,7 @@ const emptyPlaybackState: VutronPlaybackState = {
   playing: false, trackId: 0, title: '', artist: '', duration: 0, position: 0, error: ''
 }
 
-type ShellTab = 'home' | 'library' | 'search' | 'entity' | 'localCollection' | 'player' | 'settings'
+type ShellTab = 'home' | 'library' | 'search' | 'entity' | 'localCollection' | 'player' | 'settings' | 'about'
 type ShellEntity = { category: 'albums' | 'artists'; id: number; name: string; picUrl?: string }
 interface NavigationEntry {
   tab: ShellTab
@@ -48,16 +51,34 @@ function colorInputValue(value: number): string {
 }
 
 export const useAndroidShellStore = defineStore('androidShell', () => {
-  const profile = ref<VutronProfile>()
+  const loading = ref(false)
+  const error = ref('')
+  const authSession = createAuthSession({
+    loading, error, formatError: errorMessage, restoreLocalState, resetToLocalLibrary, startPlaybackPolling,
+    loadOnlineState: async () => { await Promise.all([loadPlaylists(), loadHomeData(), onlineLibrary.loadLikedTracks()]) },
+    resetToOnlineHome: () => { navigationHistory.value = []; activeTab.value = 'home' },
+    beforeLogout: async () => {
+      await flushLiveSettings()
+      ++trackListRequestId; ++searchRequestId; ++lyricsRequestId
+      ++cacheSettingsRevision; playbackPlaylistCache.clear()
+    },
+    clearOnlineState: () => { playlistReadVersion++; playlistsLoading.value = false; playlists.value = [] }
+  })
+  const {
+    profile, localOnly, loginRequested, localModeLoading, loggedIn, hasAccess, loginVisible, onlineAvailable,
+    qrLoginKey, qrLoginImage, qrLoginStatus, qrLoginLoading,
+    restore, enterLocalOnly, requestLogin, login, createQrLogin, checkQrLogin, cancelQrLogin, logout
+  } = authSession
   const playlists = ref<VutronPlaylist[]>([])
+  const playlistsLoading = ref(false)
+  let playlistReadVersion = 0
   const tracks = ref<VutronTrack[]>([])
   const selectedPlaylist = ref<VutronPlaylist>()
-  const localLibrary = ref<VutronLocalLibrary>({ folders: [], playlists: [] })
   const selectedLocalCollection = ref<VutronLocalCollection>()
-  const libraryLoading = ref(false)
-  const localTracks = ref<VutronLocalTrack[]>([])
+  const { localLibrary, libraryLoading, localScanLoading, localTracks, folderName,
+    pickMusicFolder, loadLocalMusic, loadLocalLibrary, importLocalPlaylist
+  } = createLocalLibrary({ error, onlineAvailable, formatError: errorMessage, openCollection: openLocalCollection, notice: message => { queueNotice.value = message } })
   const cachedTracks = ref<VutronLocalTrack[]>([])
-  const folderName = ref('未选择文件夹')
   const cacheStatus = ref<VutronCacheStatus>({ capacityMb: 2048, usedBytes: 0, trackCount: 0, enabled: true })
   const cacheCapacityMb = ref(2048)
   const artworkCacheCapacityMb = ref(128)
@@ -78,12 +99,12 @@ export const useAndroidShellStore = defineStore('androidShell', () => {
   const navigationHistory = shallowRef<NavigationEntry[]>([])
   const navigationDirection = ref<'forward' | 'back'>('forward')
   const navigationScrollY = ref(0)
-  const canNavigateBack = computed(() => navigationHistory.value.length > 0 || activeTab.value !== 'home')
-  const loading = ref(false)
-  const error = ref('')
+  const rootTab = computed<ShellTab>(() => localOnly.value ? 'library' : 'home')
+  const canNavigateBack = computed(() => loginRequested.value && localOnly.value || navigationHistory.value.length > 0 || activeTab.value !== rootTab.value)
   const playback = ref<VutronPlaybackState>({ ...emptyPlaybackState })
   const playbackQueue = ref<VutronQueue>({ tracks: [], index: -1, upNext: [], mode: 0 })
   const queueOpen = ref(false)
+  let queueReadKey = ''
   const queueNotice = ref('')
   const selectedEntity = ref<ShellEntity>()
   const cachedPlaylists = ref<VutronPlaylist[]>([])
@@ -101,11 +122,6 @@ export const useAndroidShellStore = defineStore('androidShell', () => {
   const cacheAllPlaylistsLoading = ref(false)
   const cacheAllPlaylistsResult = ref('')
   const autoMatchSources = ref(true)
-  const qrLoginKey = ref('')
-  const qrLoginImage = ref('')
-  const qrLoginStatus = ref('')
-  const qrLoginLoading = ref(false)
-  const loggedIn = computed(() => Boolean(profile.value))
   let playbackTimer: ReturnType<typeof setInterval> | undefined
   let playbackRequestPending = false
   let cacheStatusPending = false
@@ -157,6 +173,10 @@ export const useAndroidShellStore = defineStore('androidShell', () => {
     return [state.trackId, track?.localUri ?? '', track?.localPath ?? '', track?.neteaseId ?? ''].join('|')
   }
 
+  function queueStateKey(state = playback.value): string {
+    return JSON.stringify([state.queueToken, state.queueIndex, state.queueCount, state.upNextCount, state.mode, playbackTrackKey(state)])
+  }
+
   function rememberPage() {
     navigationHistory.value = [...navigationHistory.value, {
       tab: activeTab.value, playlist: selectedPlaylist.value, entity: selectedEntity.value,
@@ -167,18 +187,19 @@ export const useAndroidShellStore = defineStore('androidShell', () => {
   }
 
   function navigateTo(tab: ShellTab) {
+    if (!onlineAvailable.value && ['home', 'search', 'entity'].includes(tab)) return
     if (tab === activeTab.value && !(tab === 'library' && selectedPlaylist.value)) return
     rememberPage()
     ++trackListRequestId
     loading.value = false
     activeTab.value = tab
     if (tab === 'library') { selectedPlaylist.value = undefined; selectedEntity.value = undefined; selectedLocalCollection.value = undefined; tracks.value = [] }
-    if (tab === 'home') navigationHistory.value = []
+    if (tab === rootTab.value) navigationHistory.value = []
   }
 
   function navigateBack(): boolean {
     const previous = navigationHistory.value.at(-1)
-    if (!previous && activeTab.value === 'home') return false
+    if (!previous && activeTab.value === rootTab.value) return false
     ++trackListRequestId
     loading.value = false
     navigationDirection.value = 'back'
@@ -188,105 +209,61 @@ export const useAndroidShellStore = defineStore('androidShell', () => {
     selectedEntity.value = previous?.entity
     selectedLocalCollection.value = previous?.localCollection
     tracks.value = previous?.tracks ?? []
-    activeTab.value = previous?.tab ?? 'home'
+    activeTab.value = previous?.tab ?? rootTab.value
     return true
   }
 
-  async function restore() {
-    try {
-      const session = await vutronPlugin.getSession()
-      profile.value = session.profile
-      if (profile.value) {
-        try { await vutronPlugin.restorePlayback() } catch { /* First run or expired session. */ }
-        await Promise.all([loadPlaylists(), loadHomeData(), loadOfflinePlaylists(), refreshPlaybackState(), loadCacheStatus(), loadLocalMusic(), loadOverlaySettings(), loadSourceSettings()])
-        if (playback.value.trackId) await loadLyrics(playback.value.trackId)
-      }
-    } catch (cause) { error.value = errorMessage(cause, '无法连接 Android 原生适配器') }
+  async function restoreLocalState() {
+    try { await vutronPlugin.restorePlayback() } catch { /* No saved playback cursor. */ }
+    await Promise.all([loadOfflinePlaylists(), loadPlaybackQueue(), refreshPlaybackState(), loadCacheStatus(), loadLocalMusic(), loadOverlaySettings(), loadSourceSettings()])
   }
 
-  async function login(cookie: string) {
-    if (!cookie.trim()) { error.value = '请输入网易云 Cookie'; return }
-    loading.value = true; error.value = ''
-    try {
-      await completeLogin((await vutronPlugin.loginWithCookie({ cookie: cookie.trim() })).profile)
-    } catch (cause) { error.value = errorMessage(cause, '网易云登录失败') }
-    finally { loading.value = false }
+  function resetToLocalLibrary() {
+    ++trackListRequestId; ++searchRequestId
+    navigationHistory.value = []
+    selectedPlaylist.value = undefined
+    selectedEntity.value = undefined
+    selectedLocalCollection.value = undefined
+    activeTab.value = 'library'
+    tracks.value = []
+    loading.value = false
+    searchLoading.value = false
   }
 
-  async function completeLogin(account: VutronProfile) {
-    profile.value = account
-    qrLoginKey.value = ''
-    qrLoginImage.value = ''
-    qrLoginStatus.value = '登录成功，正在载入音乐库…'
-    try { await vutronPlugin.restorePlayback() } catch { /* No saved track is valid. */ }
-    await Promise.all([loadPlaylists(), loadHomeData(), loadOfflinePlaylists(), refreshPlaybackState(), loadCacheStatus(), loadLocalMusic(), loadOverlaySettings(), loadSourceSettings()])
-    startPlaybackPolling()
-  }
+  const onlineLibrary = createNeteaseLibrary({ profile, onlineAvailable, playlists, tracks, selectedPlaylist, error,
+    invalidateReads: () => { playlistReadVersion++; playlistsLoading.value = false },
+    applySnapshot: applyOnlineSnapshot, notice: message => { queueNotice.value = message }, formatError: errorMessage })
 
-  async function createQrLogin() {
-    if (!vutronPlugin.createQrLogin) {
-      qrLoginStatus.value = '当前版本没有二维码登录支持'
-      return
+  function applyOnlineSnapshot(snapshot: VutronOnlineLibrary) {
+    playlistReadVersion++; playlistsLoading.value = false
+    playlists.value = snapshot.playlists!
+    const deleted = snapshot.deletedPlaylistId || 0
+    navigationHistory.value = navigationHistory.value.filter(entry => !deleted || entry.playlist?.id !== deleted).map(entry => {
+      return snapshot.playlist && entry.playlist?.id === snapshot.playlist.id
+        ? { ...entry, playlist: snapshot.playlist, tracks: snapshot.tracks ?? entry.tracks } : entry
+    })
+    if (deleted && selectedPlaylist.value?.id === deleted) {
+      selectedPlaylist.value = undefined; tracks.value = []; trackListRequestId++; loading.value = false
+    } else if (snapshot.playlist && selectedPlaylist.value?.id === snapshot.playlist.id) {
+      selectedPlaylist.value = snapshot.playlist
+      if (snapshot.tracks) { tracks.value = snapshot.tracks; trackListRequestId++; loading.value = false }
     }
-    qrLoginLoading.value = true
-    qrLoginStatus.value = '正在获取二维码…'
-    const previousKey = qrLoginKey.value
-    qrLoginKey.value = ''
-    qrLoginImage.value = ''
-    if (previousKey) {
-      try { await vutronPlugin.cancelQrLogin?.({ key: previousKey }) } catch { /* Old QR session may already be expired. */ }
-    }
-    try {
-      const result = await vutronPlugin.createQrLogin()
-      qrLoginKey.value = result.key
-      qrLoginImage.value = result.imageData
-      qrLoginStatus.value = '请使用网易云音乐扫一扫并确认登录'
-    } catch (cause) {
-      qrLoginStatus.value = errorMessage(cause, '二维码获取失败，请检查网络后重试')
-    } finally {
-      qrLoginLoading.value = false
-    }
-  }
-
-  async function checkQrLogin() {
-    if (!qrLoginKey.value || !vutronPlugin.checkQrLogin || qrLoginLoading.value) return
-    qrLoginLoading.value = true
-    try {
-      const result = await vutronPlugin.checkQrLogin({ key: qrLoginKey.value })
-      if (result.loggedIn && result.profile) {
-        await completeLogin(result.profile)
-      } else if (result.code === 800) {
-        qrLoginKey.value = ''
-        qrLoginImage.value = ''
-        qrLoginStatus.value = '二维码已过期，请刷新二维码'
-      } else if (result.code === 802) {
-        qrLoginStatus.value = '已扫描，请在网易云音乐中确认登录'
-      } else if (result.code === 801) {
-        qrLoginStatus.value = '等待扫码…'
-      } else {
-        qrLoginStatus.value = result.message || '正在检查登录状态…'
-      }
-    } catch (cause) {
-      qrLoginStatus.value = `${errorMessage(cause, '网络暂时不可用')}，将继续检查`
-    } finally {
-      qrLoginLoading.value = false
-    }
-  }
-
-  async function cancelQrLogin() {
-    const key = qrLoginKey.value
-    qrLoginKey.value = ''
-    qrLoginImage.value = ''
-    if (!key) return
-    try { await vutronPlugin.cancelQrLogin?.({ key }) } catch { /* Session can expire independently. */ }
+    void loadOfflinePlaylists()
   }
 
   async function loadPlaylists() {
-    if (!profile.value) return
-    loading.value = true
-    try { playlists.value = (await vutronPlugin.getPlaylists({ userId: profile.value.userId })).playlists }
-    catch (cause) { error.value = errorMessage(cause, '歌单读取失败') }
-    finally { loading.value = false }
+    if (!onlineAvailable.value || !profile.value || playlistsLoading.value) return
+    const request = ++playlistReadVersion, uid = profile.value.userId
+    playlistsLoading.value = true
+    try {
+      const result = await vutronPlugin.getPlaylists({ userId: uid })
+      if (request === playlistReadVersion && onlineAvailable.value && profile.value?.userId === uid) {
+        playlists.value = result.playlists
+        return result.cached ? 'cached' : 'updated'
+      }
+    }
+    catch (cause) { if (request === playlistReadVersion && onlineAvailable.value && profile.value?.userId === uid) error.value = errorMessage(cause, '歌单读取失败') }
+    finally { if (request === playlistReadVersion) playlistsLoading.value = false }
   }
 
   async function loadOfflinePlaylists() {
@@ -296,9 +273,16 @@ export const useAndroidShellStore = defineStore('androidShell', () => {
   }
 
   async function loadHomeData() {
-    if (!vutronPlugin.getHomeData) return
+    if (!onlineAvailable.value || !vutronPlugin.getHomeData || homeLoading.value) return
     homeLoading.value = true
-    try { homeData.value = await vutronPlugin.getHomeData() }
+    try {
+      const result = await vutronPlugin.getHomeData()
+      if (onlineAvailable.value) {
+        const hasContent = Object.values(homeData.value).some(value => Array.isArray(value) && value.length > 0)
+        if (!result.cached || !hasContent) homeData.value = result
+        return result.cached ? 'cached' : 'updated'
+      }
+    }
     catch (cause) {
       error.value = errorMessage(cause, '首页内容暂时无法加载')
       if (!homeData.value.playlists.length) homeData.value.playlists = cachedPlaylists.value.slice(0, 10)
@@ -307,21 +291,46 @@ export const useAndroidShellStore = defineStore('androidShell', () => {
   }
 
   async function openPlaylist(playlist: VutronPlaylist) {
+    if (!onlineAvailable.value) { await openCachedPlaylist(playlist); return }
     rememberPage()
     const requestId = ++trackListRequestId
+    const accountId = profile.value?.userId
     selectedPlaylist.value = playlist; selectedEntity.value = undefined; tracks.value = []
     activeTab.value = 'library'; loading.value = true; error.value = ''
     try {
       const result = await vutronPlugin.getPlaylistTracks({ playlistId: playlist.id, playlist })
       playbackPlaylistCache.add(playlist.id)
-      if (requestId === trackListRequestId) tracks.value = result.tracks
+      if (requestId === trackListRequestId && onlineAvailable.value && profile.value?.userId === accountId) {
+        tracks.value = result.tracks
+        if (result.playlist) selectedPlaylist.value = result.playlist
+      }
       void loadOfflinePlaylists()
     } catch (cause) { if (requestId === trackListRequestId) error.value = errorMessage(cause, '歌曲列表读取失败') }
     finally { if (requestId === trackListRequestId) loading.value = false }
   }
 
+  async function reloadManagedLibrary(removed: { track?: VutronTrack; collectionId?: string } = {}) {
+    const matches = (track: VutronTrack) => removed.collectionId
+      ? track.localFolderId === removed.collectionId || track.localPlaylistId === removed.collectionId || track.playlistVolumeKey === removed.collectionId
+      : removed.track && (track.localKey && removed.track.localKey ? track.localKey === removed.track.localKey : track.localUri && track.localUri === removed.track.localUri)
+    navigationHistory.value = navigationHistory.value.filter(entry => !removed.collectionId || entry.localCollection?.id !== removed.collectionId)
+      .map(entry => ({ ...entry, tracks: entry.tracks.filter(track => !matches(track)) }))
+    await loadLocalMusic(false, false)
+    const collection = selectedLocalCollection.value
+    if (collection) {
+      const exists = [...localLibrary.value.folders, ...localLibrary.value.playlists].find(item => item.id === collection.id)
+      if (!exists) { selectedLocalCollection.value = undefined; tracks.value = []; activeTab.value = 'library'; ++trackListRequestId }
+      else {
+        const requestId = ++trackListRequestId
+        const result = exists.isLocalBundle ? await vutronPlugin.getLocalPlaylistTracks?.({ playlistId: exists.id }) : await vutronPlugin.getLocalFolderTracks?.({ folderId: exists.id })
+        if (requestId === trackListRequestId) { selectedLocalCollection.value = exists; tracks.value = result?.tracks ?? [] }
+      }
+    } else tracks.value = tracks.value.filter(track => !matches(track))
+    await loadPlaybackQueue(); await refreshPlaybackState(); await loadCacheStatus(false)
+  }
+
   async function cachePlaylist(playlist: VutronPlaylist) {
-    if (!vutronPlugin.cachePlaylist) return
+    if (!onlineAvailable.value || !vutronPlugin.cachePlaylist) return
     loading.value = true
     try {
       await vutronPlugin.cachePlaylist({ playlistId: playlist.id })
@@ -333,7 +342,7 @@ export const useAndroidShellStore = defineStore('androidShell', () => {
   }
 
   async function cacheAllPlaylists() {
-    if (!vutronPlugin.cacheAllPlaylists || cacheAllPlaylistsLoading.value) return
+    if (!onlineAvailable.value || !vutronPlugin.cacheAllPlaylists || cacheAllPlaylistsLoading.value) return
     cacheAllPlaylistsLoading.value = true
     cacheAllPlaylistsResult.value = ''
     try {
@@ -360,7 +369,7 @@ export const useAndroidShellStore = defineStore('androidShell', () => {
   }
 
   async function openEntityTracks(category: 'albums' | 'artists', id: number, name: string, picUrl?: string) {
-    if (!vutronPlugin.getEntityTracks) return
+    if (!onlineAvailable.value || !vutronPlugin.getEntityTracks) return
     rememberPage()
     const requestId = ++trackListRequestId
     loading.value = true
@@ -376,12 +385,13 @@ export const useAndroidShellStore = defineStore('androidShell', () => {
   }
 
   async function openMv(id: number) {
-    if (!vutronPlugin.openMv) return
+    if (!onlineAvailable.value || !vutronPlugin.openMv) return
     try { await vutronPlugin.openMv({ id }) }
     catch (cause) { error.value = errorMessage(cause, '无法打开 MV 页面') }
   }
 
   async function runSearch(category = searchCategory.value, keywords = searchKeywords.value, reset = true) {
+    if (!onlineAvailable.value) return
     const requestId = ++searchRequestId
     const normalizedKeywords = keywords.trim()
     if (!vutronPlugin.search || !normalizedKeywords) {
@@ -420,6 +430,7 @@ export const useAndroidShellStore = defineStore('androidShell', () => {
   }
 
   async function play(track: VutronTrack, playlistKey?: string, suppliedQueue?: VutronTrack[]) {
+    if (libraryMutationBusy.value) return
     const fromPlaylist = activeTab.value === 'library' && selectedPlaylist.value
       && tracks.value.some(item => item.id === track.id)
     const fromLocalCollection = activeTab.value === 'localCollection' ? selectedLocalCollection.value : undefined
@@ -439,7 +450,7 @@ export const useAndroidShellStore = defineStore('androidShell', () => {
     // Browsing already persists metadata; playing also ensures the current
     // playlist is saved when invoked from a saved queue or another page.
     const playlistId = Number(context.playlistVolumeKey.replace(/^netease:/, ''))
-    if (context.playlistVolumeKey.startsWith('netease:') && playlistId > 0 && !playbackPlaylistCache.has(playlistId)) {
+    if (onlineAvailable.value && context.playlistVolumeKey.startsWith('netease:') && playlistId > 0 && !playbackPlaylistCache.has(playlistId)) {
       playbackPlaylistCache.add(playlistId)
       void vutronPlugin.getPlaylistTracks({ playlistId, playlist: {
         id: playlistId, name: context.playlistVolumeName || `歌单 ${playlistId}`,
@@ -450,8 +461,13 @@ export const useAndroidShellStore = defineStore('androidShell', () => {
     playback.value = { ...emptyPlaybackState, trackId: track.id, title: track.name, artist: track.artists?.join(' / ') ?? '', track: contextual }
     overlayTrackKey = ''
     overlaySettings.value.currentLyricOffsetMs = offsetDrafts.get(playbackTrackKey())?.value ?? 0
-    try { await vutronPlugin.play({ track: contextual, queue, index }); await refreshPlaybackState() }
+    try { queueReadKey = ''; await vutronPlugin.play({ track: contextual, queue, index }); await refreshPlaybackState() }
     catch (cause) { error.value = errorMessage(cause, '播放失败') }
+  }
+  async function reorderLocalPlayback(collectionId: string, keys: string[]) {
+    if (!vutronPlugin.reorderLocalPlaybackQueue) return
+    try { playbackQueue.value = await vutronPlugin.reorderLocalPlaybackQueue({ collectionId, keys }) }
+    catch (cause) { error.value = errorMessage(cause, '播放队列排序失败') }
   }
   async function playAdjacent(direction: -1 | 1) {
     try {
@@ -499,7 +515,7 @@ export const useAndroidShellStore = defineStore('androidShell', () => {
       const nextTrackKey = playbackTrackKey()
       if (nextTrackKey !== previousTrackKey) overlaySettings.value.currentLyricOffsetMs = offsetDrafts.get(nextTrackKey)?.value ?? 0
       if (next.trackId && nextTrackKey !== overlayTrackKey) await loadOverlaySettings()
-      if (queueOpen.value) await loadPlaybackQueue()
+      if (queueOpen.value && queueStateKey(next) !== queueReadKey) await loadPlaybackQueue()
       if (vutronPlugin.getSleepTimer) {
         try { sleepTimerRemainingMs.value = (await vutronPlugin.getSleepTimer()).remainingMs }
         catch { /* Timer support was added after the earliest WebShell build. */ }
@@ -510,7 +526,7 @@ export const useAndroidShellStore = defineStore('androidShell', () => {
   }
 
   async function loadLyrics(trackId: number) {
-    if (!vutronPlugin.getLyrics || !trackId) return
+    if (!hasAccess.value || !vutronPlugin.getLyrics || !trackId) return
     const requestId = ++lyricsRequestId
     lyricsLoading.value = true
     try {
@@ -528,7 +544,7 @@ export const useAndroidShellStore = defineStore('androidShell', () => {
 
   async function loadPlaybackQueue() {
     if (!vutronPlugin.getPlaybackQueue) return
-    try { playbackQueue.value = await vutronPlugin.getPlaybackQueue() }
+    try { playbackQueue.value = await vutronPlugin.getPlaybackQueue(); queueReadKey = queueStateKey() }
     catch (cause) { error.value = errorMessage(cause, '播放队列读取失败') }
   }
   async function showPlaybackQueue() { queueOpen.value = true; await loadPlaybackQueue() }
@@ -712,37 +728,6 @@ export const useAndroidShellStore = defineStore('androidShell', () => {
     await Promise.all([overlayWriter.flush(), ...[...offsetWriters.values(), ...trackVolumeWriters.values(), ...playlistVolumeWriters.values()].map(writer => writer.flush())])
   }
 
-  async function pickMusicFolder() {
-    if (!vutronPlugin.pickMusicFolder) { error.value = '当前 APK 尚未接入文件夹选择器'; return }
-    try { const result = await vutronPlugin.pickMusicFolder(); if (result.name) folderName.value = result.name; await loadLocalMusic() }
-    catch (cause) { error.value = errorMessage(cause, '文件夹授权失败') }
-  }
-  async function loadLocalMusic() {
-    if (!vutronPlugin.scanLocalMusic) return
-    try {
-      localTracks.value = (await vutronPlugin.scanLocalMusic()).tracks ?? []
-      await loadLocalLibrary()
-    }
-    catch (cause) { error.value = errorMessage(cause, '本地音乐扫描失败') }
-  }
-  async function loadLocalLibrary() {
-    if (!vutronPlugin.getLocalLibrary) return
-    try {
-      localLibrary.value = await vutronPlugin.getLocalLibrary()
-      folderName.value = localLibrary.value.folders.map(item => item.name).join('、') || '未选择文件夹'
-    } catch (cause) { error.value = errorMessage(cause, '本地音乐资料读取失败') }
-  }
-  async function importLocalPlaylist() {
-    if (!vutronPlugin.importLocalPlaylist || libraryLoading.value) return
-    libraryLoading.value = true
-    try {
-      const result = await vutronPlugin.importLocalPlaylist()
-      if (result.cancelled) return
-      await loadLocalLibrary()
-      if (result.playlist) await openLocalCollection(result.playlist)
-    } catch (cause) { error.value = errorMessage(cause, '电脑本地歌单导入失败') }
-    finally { libraryLoading.value = false }
-  }
   async function openLocalCollection(collection: VutronLocalCollection) {
     rememberPage()
     const requestId = ++trackListRequestId
@@ -793,7 +778,7 @@ export const useAndroidShellStore = defineStore('androidShell', () => {
     catch (cause) { error.value = errorMessage(cause, '封面缓存容量设置失败') }
   }
   async function cacheCurrent() {
-    if (!vutronPlugin.cacheTrack || !playback.value.trackId) return
+    if (!onlineAvailable.value || !vutronPlugin.cacheTrack || !playback.value.trackId) return
     const track = playback.value.track ?? [...tracks.value, ...localTracks.value].find(item => item.id === playback.value.trackId)
     if (!track) return
     try { await vutronPlugin.cacheTrack({ track }); await loadCacheStatus() }
@@ -822,36 +807,29 @@ export const useAndroidShellStore = defineStore('androidShell', () => {
     return `${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, '0')}`
   })
 
-  function startPlaybackPolling(intervalMs = 1000) {
+  function startPlaybackPolling(intervalMs = 2000) {
     stopPlaybackPolling(); void refreshPlaybackState()
     playbackTimer = setInterval(() => {
+      if (document.visibilityState === 'hidden') return
       void refreshPlaybackState()
-      if (document.visibilityState === 'hidden' || !['settings', 'library'].includes(activeTab.value)) return
+      if (!['settings', 'library'].includes(activeTab.value)) return
       const now = Date.now()
-      if (now - cachePollAt >= 2000) { cachePollAt = now; void loadCacheStatus(false) }
+      if (now - cachePollAt >= 5000) { cachePollAt = now; void loadCacheStatus(false) }
     }, intervalMs)
   }
   function stopPlaybackPolling() { if (playbackTimer !== undefined) clearInterval(playbackTimer); playbackTimer = undefined }
-  async function logout() {
-    await flushLiveSettings()
-    ++trackListRequestId; ++searchRequestId; ++lyricsRequestId
-    ++cacheSettingsRevision; playbackPlaylistCache.clear()
-    navigationHistory.value = []; selectedEntity.value = undefined; activeTab.value = 'home'
-    stopPlaybackPolling(); await cancelQrLogin(); try { await vutronPlugin.logout() } catch { /* Browser preview. */ }
-    profile.value = undefined; playlists.value = []; tracks.value = []; localTracks.value = []; cachedTracks.value = []; selectedPlaylist.value = undefined
-  }
-
   return {
-    profile, playlists, cachedPlaylists, tracks, selectedPlaylist, selectedEntity, localTracks, cachedTracks, folderName, cacheStatus, cacheCapacityMb,
-    localLibrary, selectedLocalCollection, libraryLoading, loadLocalLibrary, importLocalPlaylist, openLocalCollection,
+    ...onlineLibrary,
+    profile, playlists, playlistsLoading, cachedPlaylists, tracks, selectedPlaylist, selectedEntity, localTracks, cachedTracks, folderName, cacheStatus, cacheCapacityMb,
+    localLibrary, selectedLocalCollection, libraryLoading, localScanLoading, loadLocalLibrary, importLocalPlaylist, openLocalCollection, reloadManagedLibrary,
     homeData, homeLoading, searchCategory, searchKeywords, searchResults, searchCount, searchNextPage, searchLoading,
     sleepTimerRemainingMs, sleepTimerMinutes, sleepTimerLabel, cacheAllPlaylistsLoading, cacheAllPlaylistsResult,
-    lyrics, lyricsLoading, activeTab, loading, error, playback, loggedIn,
+    lyrics, lyricsLoading, activeTab, loading, error, playback, loggedIn, localOnly, hasAccess, onlineAvailable, loginVisible, localModeLoading, enterLocalOnly, requestLogin,
     playbackQueue, queueOpen, queueNotice, showPlaybackQueue, loadPlaybackQueue, trackWithContext, queueTrackNext, appendTrackToQueue, playQueueIndex, removeQueueTrack, clearPlayNext,
     canNavigateBack, navigationDirection, navigationScrollY, navigateTo, navigateBack,
     qrLoginKey, qrLoginImage, qrLoginStatus, qrLoginLoading,
     restore, login, createQrLogin, checkQrLogin, cancelQrLogin, loadPlaylists, loadOfflinePlaylists, loadHomeData, openPlaylist, cachePlaylist, cacheAllPlaylists, openCachedPlaylist, openEntityTracks,
-    runSearch, loadMoreSearch, openMv, play, playAdjacent, pause, resume, stop, seek, cyclePlaybackMode, refreshPlaybackState, loadLyrics,
+    runSearch, loadMoreSearch, openMv, play, reorderLocalPlayback, playAdjacent, pause, resume, stop, seek, cyclePlaybackMode, refreshPlaybackState, loadLyrics,
     pickMusicFolder, loadLocalMusic, loadCacheStatus, setCacheCapacity, setArtworkCacheCapacity, artworkCacheCapacityMb, cacheCurrent, clearCache,
     setSleepTimer, clearSleepTimer, setAutomaticCache, temporarilyHideOverlay, restoreOverlay,
     autoMatchSources, loadSourceSettings, setAutoMatchSources, setCurrentTrackVolume, setCurrentPlaylistVolume,
