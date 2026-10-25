@@ -17,8 +17,14 @@ try {
     }
     & node node_modules/typescript/bin/tsc --noEmit
     if ($LASTEXITCODE -ne 0) { throw "Mobile TypeScript check failed." }
-    & npm.cmd run build
-    if ($LASTEXITCODE -ne 0) { throw "Mobile frontend build failed." }
+    $savedPreference = $ErrorActionPreference
+    try {
+        # Windows PowerShell otherwise treats successful native stderr warnings as failures.
+        $ErrorActionPreference = "Continue"
+        & npm.cmd run build
+        $frontendExitCode = $LASTEXITCODE
+    } finally { $ErrorActionPreference = $savedPreference }
+    if ($frontendExitCode -ne 0) { throw "Mobile frontend build failed." }
     & npm.cmd exec -- cap sync android
     if ($LASTEXITCODE -ne 0) { throw "Capacitor sync failed." }
     Push-Location android
