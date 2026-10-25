@@ -15,5 +15,14 @@
     },
     "sourceMap": true
   },
-  "include": ["src/main", "src/preload", "package.json", "vite.config.ts", "buildAssets/builder"]
+  "include": [
+    "src/main",
+    "src/preload",
+    "src/types/**/*.ts",
+    "src/types/**/*.d.ts",
+    "packages/core/src/**/*.ts",
+    "package.json",
+    "vite.config.ts",
+    "buildAssets/builder"
+  ]
 }

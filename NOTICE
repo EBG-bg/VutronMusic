@@ -1,0 +1,27 @@
+Vutron Music - Mobile 1.0.0
+
+Based on VutronMusic by stark81 and contributors:
+https://github.com/stark81/VutronMusic
+
+Original scaffold notice, retained without alteration:
+Copyright (c) 2022-2024 jooy2 <jooy2.contact@gmail.com> (https://jooy2.com).
+See LICENSE for the original MIT license.
+
+Mobile modifications: Copyright (c) 2026 EBG-bg and contributors.
+Public mobile fork: https://github.com/EBG-bg/VutronMusic
+
+The mobile adaptation and shared UI/core changes are identified in the source
+tree and version history. This notice does not replace upstream copyright
+notices or third-party license terms.
+
+This distribution includes LGPL-3.0-only software:
+@unblockneteasemusic/server 0.28.0. Its COPYING and COPYING.LESSER, the shipped
+JavaScript source, and corresponding application/build materials are retained.
+See legal/REDISTRIBUTION.md and THIRD_PARTY_NOTICES.md. Modification and reverse
+engineering needed to debug modifications to that library are not restricted
+by this project's use policy.
+
+The product is an independent mobile fork. It is not an official NetEase
+Cloud Music client and is not endorsed by the upstream authors or providers.
+Software licenses do not grant rights to music, lyrics, artwork, accounts,
+provider services, trademarks, or provider access controls.

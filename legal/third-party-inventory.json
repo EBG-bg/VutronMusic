@@ -1,0 +1,1649 @@
+{
+  "product": "Vutron Music - Mobile",
+  "release": "1.0.0",
+  "reviewDate": "2026-10-25",
+  "scope": "Installed frontend modules, embedded Node source tree, resolved Android runtime graph and retained JNI binaries; build-only dependencies are not asserted to ship.",
+  "packages": [
+    {
+      "category": "frontend",
+      "name": "vue",
+      "version": "3.5.44",
+      "declaredLicense": "MIT",
+      "source": "apps/android-vutron/node_modules/vue",
+      "licenseFiles": [
+        "legal/licenses/frontend/vue-3.5.44/LICENSE"
+      ],
+      "repository": {
+        "type": "git",
+        "url": "git+https://github.com/vuejs/core.git"
+      }
+    },
+    {
+      "category": "frontend",
+      "name": "pinia",
+      "version": "2.3.1",
+      "declaredLicense": "MIT",
+      "source": "apps/android-vutron/node_modules/pinia",
+      "licenseFiles": [
+        "legal/licenses/frontend/pinia-2.3.1/LICENSE"
+      ],
+      "repository": {
+        "type": "git",
+        "url": "git+https://github.com/vuejs/pinia.git"
+      }
+    },
+    {
+      "category": "frontend",
+      "name": "vue-demi",
+      "version": "0.14.10",
+      "declaredLicense": "MIT",
+      "source": "apps/android-vutron/node_modules/vue-demi",
+      "licenseFiles": [
+        "legal/licenses/frontend/vue-demi-0.14.10/LICENSE"
+      ],
+      "repository": "https://github.com/antfu/vue-demi.git"
+    },
+    {
+      "category": "frontend",
+      "name": "@capacitor/core",
+      "version": "7.6.9",
+      "declaredLicense": "MIT",
+      "source": "apps/android-vutron/node_modules/@capacitor/core",
+      "licenseFiles": [
+        "legal/licenses/frontend/_capacitor_core-7.6.9/LICENSE"
+      ],
+      "repository": {
+        "type": "git",
+        "url": "git+https://github.com/ionic-team/capacitor.git"
+      }
+    },
+    {
+      "category": "frontend",
+      "name": "@capacitor/android",
+      "version": "7.6.9",
+      "declaredLicense": "MIT",
+      "source": "apps/android-vutron/node_modules/@capacitor/android",
+      "licenseFiles": [
+        "legal/licenses/frontend/_capacitor_android-7.6.9/LICENSE"
+      ],
+      "repository": {
+        "type": "git",
+        "url": "git+https://github.com/ionic-team/capacitor.git"
+      }
+    },
+    {
+      "category": "frontend",
+      "name": "@capacitor/app",
+      "version": "7.1.2",
+      "declaredLicense": "MIT",
+      "source": "apps/android-vutron/node_modules/@capacitor/app",
+      "licenseFiles": [
+        "legal/licenses/frontend/_capacitor_app-7.1.2/LICENSE"
+      ],
+      "repository": {
+        "type": "git",
+        "url": "git+https://github.com/ionic-team/capacitor-plugins.git"
+      }
+    },
+    {
+      "category": "frontend",
+      "name": "@vue/runtime-core",
+      "version": "3.5.44",
+      "declaredLicense": "MIT",
+      "source": "apps/android-vutron/node_modules/@vue/runtime-core",
+      "licenseFiles": [
+        "legal/licenses/frontend/_vue_runtime-core-3.5.44/LICENSE"
+      ],
+      "repository": {
+        "type": "git",
+        "url": "git+https://github.com/vuejs/core.git",
+        "directory": "packages/runtime-core"
+      }
+    },
+    {
+      "category": "frontend",
+      "name": "@vue/runtime-dom",
+      "version": "3.5.44",
+      "declaredLicense": "MIT",
+      "source": "apps/android-vutron/node_modules/@vue/runtime-dom",
+      "licenseFiles": [
+        "legal/licenses/frontend/_vue_runtime-dom-3.5.44/LICENSE"
+      ],
+      "repository": {
+        "type": "git",
+        "url": "git+https://github.com/vuejs/core.git",
+        "directory": "packages/runtime-dom"
+      }
+    },
+    {
+      "category": "frontend",
+      "name": "@vue/reactivity",
+      "version": "3.5.44",
+      "declaredLicense": "MIT",
+      "source": "apps/android-vutron/node_modules/@vue/reactivity",
+      "licenseFiles": [
+        "legal/licenses/frontend/_vue_reactivity-3.5.44/LICENSE"
+      ],
+      "repository": {
+        "type": "git",
+        "url": "git+https://github.com/vuejs/core.git",
+        "directory": "packages/reactivity"
+      }
+    },
+    {
+      "category": "frontend",
+      "name": "@vue/shared",
+      "version": "3.5.44",
+      "declaredLicense": "MIT",
+      "source": "apps/android-vutron/node_modules/@vue/shared",
+      "licenseFiles": [
+        "legal/licenses/frontend/_vue_shared-3.5.44/LICENSE"
+      ],
+      "repository": {
+        "type": "git",
+        "url": "git+https://github.com/vuejs/core.git",
+        "directory": "packages/shared"
+      }
+    },
+    {
+      "category": "frontend",
+      "name": "@vue/devtools-api",
+      "version": "6.6.4",
+      "declaredLicense": "MIT",
+      "source": "apps/android-vutron/node_modules/@vue/devtools-api",
+      "licenseFiles": [
+        "legal/licenses/frontend/_vue_devtools-api-6.6.4/LICENSE"
+      ],
+      "repository": {
+        "url": "https://github.com/vuejs/vue-devtools.git",
+        "type": "git",
+        "directory": "packages/api"
+      },
+      "licenseSource": "https://raw.githubusercontent.com/vuejs/devtools-v6/master/LICENSE"
+    },
+    {
+      "category": "embedded-node",
+      "name": "@unblockneteasemusic/server",
+      "version": "0.28.0",
+      "declaredLicense": "LGPL-3.0-only",
+      "source": "vendor/android-runtime/src/main/assets/sources-runtime/node_modules/@unblockneteasemusic/server",
+      "licenseFiles": [
+        "legal/licenses/embedded-node/_unblockneteasemusic_server-0.28.0/COPYING",
+        "legal/licenses/embedded-node/_unblockneteasemusic_server-0.28.0/COPYING.LESSER"
+      ],
+      "repository": {
+        "type": "git",
+        "url": "https://github.com/UnblockNeteaseMusic/server.git"
+      }
+    },
+    {
+      "category": "embedded-node",
+      "name": "ansi-styles",
+      "version": "3.2.1",
+      "declaredLicense": "MIT",
+      "source": "vendor/android-runtime/src/main/assets/sources-runtime/node_modules/ansi-styles",
+      "licenseFiles": [
+        "legal/licenses/embedded-node/ansi-styles-3.2.1/license"
+      ],
+      "repository": "chalk/ansi-styles"
+    },
+    {
+      "category": "embedded-node",
+      "name": "args",
+      "version": "5.0.3",
+      "declaredLicense": "MIT",
+      "source": "vendor/android-runtime/src/main/assets/sources-runtime/node_modules/args",
+      "licenseFiles": [
+        "legal/licenses/embedded-node/args-5.0.3/LICENSE"
+      ],
+      "repository": "leo/args"
+    },
+    {
+      "category": "embedded-node",
+      "name": "atomic-sleep",
+      "version": "1.0.0",
+      "declaredLicense": "MIT",
+      "source": "vendor/android-runtime/src/main/assets/sources-runtime/node_modules/atomic-sleep",
+      "licenseFiles": [
+        "legal/licenses/embedded-node/atomic-sleep-1.0.0/LICENSE"
+      ],
+      "repository": {
+        "type": "git",
+        "url": "git+https://github.com/davidmarkclements/atomic-sleep.git"
+      }
+    },
+    {
+      "category": "embedded-node",
+      "name": "camelcase",
+      "version": "5.0.0",
+      "declaredLicense": "MIT",
+      "source": "vendor/android-runtime/src/main/assets/sources-runtime/node_modules/camelcase",
+      "licenseFiles": [
+        "legal/licenses/embedded-node/camelcase-5.0.0/license"
+      ],
+      "repository": "sindresorhus/camelcase"
+    },
+    {
+      "category": "embedded-node",
+      "name": "chalk",
+      "version": "2.4.2",
+      "declaredLicense": "MIT",
+      "source": "vendor/android-runtime/src/main/assets/sources-runtime/node_modules/chalk",
+      "licenseFiles": [
+        "legal/licenses/embedded-node/chalk-2.4.2/license"
+      ],
+      "repository": "chalk/chalk"
+    },
+    {
+      "category": "embedded-node",
+      "name": "color-convert",
+      "version": "1.9.3",
+      "declaredLicense": "MIT",
+      "source": "vendor/android-runtime/src/main/assets/sources-runtime/node_modules/color-convert",
+      "licenseFiles": [
+        "legal/licenses/embedded-node/color-convert-1.9.3/LICENSE"
+      ],
+      "repository": "Qix-/color-convert"
+    },
+    {
+      "category": "embedded-node",
+      "name": "color-name",
+      "version": "1.1.3",
+      "declaredLicense": "MIT",
+      "source": "vendor/android-runtime/src/main/assets/sources-runtime/node_modules/color-name",
+      "licenseFiles": [
+        "legal/licenses/embedded-node/color-name-1.1.3/LICENSE"
+      ],
+      "repository": {
+        "type": "git",
+        "url": "git@github.com:dfcreative/color-name.git"
+      }
+    },
+    {
+      "category": "embedded-node",
+      "name": "colorette",
+      "version": "2.0.20",
+      "declaredLicense": "MIT",
+      "source": "vendor/android-runtime/src/main/assets/sources-runtime/node_modules/colorette",
+      "licenseFiles": [
+        "legal/licenses/embedded-node/colorette-2.0.20/LICENSE.md"
+      ],
+      "repository": "jorgebucaran/colorette"
+    },
+    {
+      "category": "embedded-node",
+      "name": "dateformat",
+      "version": "4.6.3",
+      "declaredLicense": "MIT",
+      "source": "vendor/android-runtime/src/main/assets/sources-runtime/node_modules/dateformat",
+      "licenseFiles": [
+        "legal/licenses/embedded-node/dateformat-4.6.3/LICENSE"
+      ],
+      "repository": {
+        "type": "git",
+        "url": "https://github.com/felixge/node-dateformat.git"
+      }
+    },
+    {
+      "category": "embedded-node",
+      "name": "duplexify",
+      "version": "4.1.3",
+      "declaredLicense": "MIT",
+      "source": "vendor/android-runtime/src/main/assets/sources-runtime/node_modules/duplexify",
+      "licenseFiles": [
+        "legal/licenses/embedded-node/duplexify-4.1.3/LICENSE"
+      ],
+      "repository": {
+        "type": "git",
+        "url": "git://github.com/mafintosh/duplexify"
+      }
+    },
+    {
+      "category": "embedded-node",
+      "name": "end-of-stream",
+      "version": "1.4.5",
+      "declaredLicense": "MIT",
+      "source": "vendor/android-runtime/src/main/assets/sources-runtime/node_modules/end-of-stream",
+      "licenseFiles": [
+        "legal/licenses/embedded-node/end-of-stream-1.4.5/LICENSE"
+      ],
+      "repository": {
+        "type": "git",
+        "url": "git://github.com/mafintosh/end-of-stream.git"
+      }
+    },
+    {
+      "category": "embedded-node",
+      "name": "escape-string-regexp",
+      "version": "1.0.5",
+      "declaredLicense": "MIT",
+      "source": "vendor/android-runtime/src/main/assets/sources-runtime/node_modules/escape-string-regexp",
+      "licenseFiles": [
+        "legal/licenses/embedded-node/escape-string-regexp-1.0.5/license"
+      ],
+      "repository": "sindresorhus/escape-string-regexp"
+    },
+    {
+      "category": "embedded-node",
+      "name": "fast-redact",
+      "version": "3.5.0",
+      "declaredLicense": "MIT",
+      "source": "vendor/android-runtime/src/main/assets/sources-runtime/node_modules/fast-redact",
+      "licenseFiles": [
+        "legal/licenses/embedded-node/fast-redact-3.5.0/LICENSE"
+      ],
+      "repository": {
+        "type": "git",
+        "url": "git+https://github.com/davidmarkclements/fast-redact.git"
+      }
+    },
+    {
+      "category": "embedded-node",
+      "name": "fast-safe-stringify",
+      "version": "2.1.1",
+      "declaredLicense": "MIT",
+      "source": "vendor/android-runtime/src/main/assets/sources-runtime/node_modules/fast-safe-stringify",
+      "licenseFiles": [
+        "legal/licenses/embedded-node/fast-safe-stringify-2.1.1/LICENSE"
+      ],
+      "repository": {
+        "type": "git",
+        "url": "git+https://github.com/davidmarkclements/fast-safe-stringify.git"
+      }
+    },
+    {
+      "category": "embedded-node",
+      "name": "flatstr",
+      "version": "1.0.12",
+      "declaredLicense": "MIT",
+      "source": "vendor/android-runtime/src/main/assets/sources-runtime/node_modules/flatstr",
+      "licenseFiles": [
+        "legal/licenses/embedded-node/flatstr-1.0.12/LICENSE"
+      ],
+      "repository": {
+        "type": "git",
+        "url": "git+https://github.com/davidmarkclements/flatstr.git"
+      }
+    },
+    {
+      "category": "embedded-node",
+      "name": "has-flag",
+      "version": "3.0.0",
+      "declaredLicense": "MIT",
+      "source": "vendor/android-runtime/src/main/assets/sources-runtime/node_modules/has-flag",
+      "licenseFiles": [
+        "legal/licenses/embedded-node/has-flag-3.0.0/license"
+      ],
+      "repository": "sindresorhus/has-flag"
+    },
+    {
+      "category": "embedded-node",
+      "name": "inherits",
+      "version": "2.0.4",
+      "declaredLicense": "ISC",
+      "source": "vendor/android-runtime/src/main/assets/sources-runtime/node_modules/inherits",
+      "licenseFiles": [
+        "legal/licenses/embedded-node/inherits-2.0.4/LICENSE"
+      ],
+      "repository": "git://github.com/isaacs/inherits"
+    },
+    {
+      "category": "embedded-node",
+      "name": "joycon",
+      "version": "3.1.1",
+      "declaredLicense": "MIT",
+      "source": "vendor/android-runtime/src/main/assets/sources-runtime/node_modules/joycon",
+      "licenseFiles": [
+        "legal/licenses/embedded-node/joycon-3.1.1/LICENSE"
+      ],
+      "repository": {
+        "url": "egoist/joycon",
+        "type": "git"
+      }
+    },
+    {
+      "category": "embedded-node",
+      "name": "leven",
+      "version": "2.1.0",
+      "declaredLicense": "MIT",
+      "source": "vendor/android-runtime/src/main/assets/sources-runtime/node_modules/leven",
+      "licenseFiles": [
+        "legal/licenses/embedded-node/leven-2.1.0/license"
+      ],
+      "repository": "sindresorhus/leven"
+    },
+    {
+      "category": "embedded-node",
+      "name": "mri",
+      "version": "1.1.4",
+      "declaredLicense": "MIT",
+      "source": "vendor/android-runtime/src/main/assets/sources-runtime/node_modules/mri",
+      "licenseFiles": [
+        "legal/licenses/embedded-node/mri-1.1.4/license.md"
+      ],
+      "repository": "lukeed/mri"
+    },
+    {
+      "category": "embedded-node",
+      "name": "on-exit-leak-free",
+      "version": "0.2.0",
+      "declaredLicense": "MIT",
+      "source": "vendor/android-runtime/src/main/assets/sources-runtime/node_modules/on-exit-leak-free",
+      "licenseFiles": [
+        "legal/licenses/embedded-node/on-exit-leak-free-0.2.0/LICENSE"
+      ],
+      "repository": {
+        "type": "git",
+        "url": "git+https://github.com/mcollina/on-exit-or-gc.git"
+      }
+    },
+    {
+      "category": "embedded-node",
+      "name": "once",
+      "version": "1.4.0",
+      "declaredLicense": "ISC",
+      "source": "vendor/android-runtime/src/main/assets/sources-runtime/node_modules/once",
+      "licenseFiles": [
+        "legal/licenses/embedded-node/once-1.4.0/LICENSE"
+      ],
+      "repository": {
+        "type": "git",
+        "url": "git://github.com/isaacs/once"
+      }
+    },
+    {
+      "category": "embedded-node",
+      "name": "pino",
+      "version": "6.14.0",
+      "declaredLicense": "MIT",
+      "source": "vendor/android-runtime/src/main/assets/sources-runtime/node_modules/pino",
+      "licenseFiles": [
+        "legal/licenses/embedded-node/pino-6.14.0/LICENSE"
+      ],
+      "repository": {
+        "type": "git",
+        "url": "git+https://github.com/pinojs/pino.git"
+      }
+    },
+    {
+      "category": "embedded-node",
+      "name": "pino-abstract-transport",
+      "version": "0.5.0",
+      "declaredLicense": "MIT",
+      "source": "vendor/android-runtime/src/main/assets/sources-runtime/node_modules/pino-abstract-transport",
+      "licenseFiles": [
+        "legal/licenses/embedded-node/pino-abstract-transport-0.5.0/LICENSE"
+      ],
+      "repository": {
+        "type": "git",
+        "url": "git+https://github.com/pinojs/pino-abstract-transport.git"
+      }
+    },
+    {
+      "category": "embedded-node",
+      "name": "pino-pretty",
+      "version": "7.6.1",
+      "declaredLicense": "MIT",
+      "source": "vendor/android-runtime/src/main/assets/sources-runtime/node_modules/pino-pretty",
+      "licenseFiles": [
+        "legal/licenses/embedded-node/pino-pretty-7.6.1/LICENSE"
+      ],
+      "repository": {
+        "type": "git",
+        "url": "git+ssh://git@github.com/pinojs/pino-pretty.git"
+      }
+    },
+    {
+      "category": "embedded-node",
+      "name": "sonic-boom",
+      "version": "2.8.0",
+      "declaredLicense": "MIT",
+      "source": "vendor/android-runtime/src/main/assets/sources-runtime/node_modules/pino-pretty/node_modules/sonic-boom",
+      "licenseFiles": [
+        "legal/licenses/embedded-node/sonic-boom-2.8.0/LICENSE"
+      ],
+      "repository": {
+        "type": "git",
+        "url": "git+https://github.com/pinojs/sonic-boom.git"
+      }
+    },
+    {
+      "category": "embedded-node",
+      "name": "pino-std-serializers",
+      "version": "3.2.0",
+      "declaredLicense": "MIT",
+      "source": "vendor/android-runtime/src/main/assets/sources-runtime/node_modules/pino-std-serializers",
+      "licenseFiles": [
+        "legal/licenses/embedded-node/pino-std-serializers-3.2.0/LICENSE"
+      ],
+      "repository": {
+        "type": "git",
+        "url": "git+ssh://git@github.com/pinojs/pino-std-serializers.git"
+      }
+    },
+    {
+      "category": "embedded-node",
+      "name": "process-warning",
+      "version": "1.0.0",
+      "declaredLicense": "MIT",
+      "source": "vendor/android-runtime/src/main/assets/sources-runtime/node_modules/process-warning",
+      "licenseFiles": [
+        "legal/licenses/embedded-node/process-warning-1.0.0/LICENSE"
+      ],
+      "repository": {
+        "type": "git",
+        "url": "git+https://github.com/fastify/processs-warning.git"
+      }
+    },
+    {
+      "category": "embedded-node",
+      "name": "pump",
+      "version": "3.0.4",
+      "declaredLicense": "MIT",
+      "source": "vendor/android-runtime/src/main/assets/sources-runtime/node_modules/pump",
+      "licenseFiles": [
+        "legal/licenses/embedded-node/pump-3.0.4/LICENSE"
+      ],
+      "repository": "git://github.com/mafintosh/pump.git"
+    },
+    {
+      "category": "embedded-node",
+      "name": "quick-format-unescaped",
+      "version": "4.0.4",
+      "declaredLicense": "MIT",
+      "source": "vendor/android-runtime/src/main/assets/sources-runtime/node_modules/quick-format-unescaped",
+      "licenseFiles": [
+        "legal/licenses/embedded-node/quick-format-unescaped-4.0.4/LICENSE"
+      ],
+      "repository": {
+        "type": "git",
+        "url": "git+https://github.com/davidmarkclements/quick-format.git"
+      }
+    },
+    {
+      "category": "embedded-node",
+      "name": "readable-stream",
+      "version": "3.6.2",
+      "declaredLicense": "MIT",
+      "source": "vendor/android-runtime/src/main/assets/sources-runtime/node_modules/readable-stream",
+      "licenseFiles": [
+        "legal/licenses/embedded-node/readable-stream-3.6.2/LICENSE"
+      ],
+      "repository": {
+        "type": "git",
+        "url": "git://github.com/nodejs/readable-stream"
+      }
+    },
+    {
+      "category": "embedded-node",
+      "name": "rfdc",
+      "version": "1.4.1",
+      "declaredLicense": "MIT",
+      "source": "vendor/android-runtime/src/main/assets/sources-runtime/node_modules/rfdc",
+      "licenseFiles": [
+        "legal/licenses/embedded-node/rfdc-1.4.1/LICENSE"
+      ],
+      "repository": {
+        "type": "git",
+        "url": "git+https://github.com/davidmarkclements/rfdc.git"
+      }
+    },
+    {
+      "category": "embedded-node",
+      "name": "safe-buffer",
+      "version": "5.2.1",
+      "declaredLicense": "MIT",
+      "source": "vendor/android-runtime/src/main/assets/sources-runtime/node_modules/safe-buffer",
+      "licenseFiles": [
+        "legal/licenses/embedded-node/safe-buffer-5.2.1/LICENSE"
+      ],
+      "repository": {
+        "type": "git",
+        "url": "git://github.com/feross/safe-buffer.git"
+      }
+    },
+    {
+      "category": "embedded-node",
+      "name": "secure-json-parse",
+      "version": "2.7.0",
+      "declaredLicense": "BSD-3-Clause",
+      "source": "vendor/android-runtime/src/main/assets/sources-runtime/node_modules/secure-json-parse",
+      "licenseFiles": [
+        "legal/licenses/embedded-node/secure-json-parse-2.7.0/LICENSE.md"
+      ],
+      "repository": {
+        "type": "git",
+        "url": "git+https://github.com/fastify/secure-json-parse.git"
+      }
+    },
+    {
+      "category": "embedded-node",
+      "name": "sonic-boom",
+      "version": "1.4.1",
+      "declaredLicense": "MIT",
+      "source": "vendor/android-runtime/src/main/assets/sources-runtime/node_modules/sonic-boom",
+      "licenseFiles": [
+        "legal/licenses/embedded-node/sonic-boom-1.4.1/LICENSE"
+      ],
+      "repository": {
+        "type": "git",
+        "url": "git+https://github.com/mcollina/sonic-boom.git"
+      }
+    },
+    {
+      "category": "embedded-node",
+      "name": "split2",
+      "version": "4.2.0",
+      "declaredLicense": "ISC",
+      "source": "vendor/android-runtime/src/main/assets/sources-runtime/node_modules/split2",
+      "licenseFiles": [
+        "legal/licenses/embedded-node/split2-4.2.0/LICENSE"
+      ],
+      "repository": {
+        "type": "git",
+        "url": "https://github.com/mcollina/split2.git"
+      }
+    },
+    {
+      "category": "embedded-node",
+      "name": "stream-shift",
+      "version": "1.0.3",
+      "declaredLicense": "MIT",
+      "source": "vendor/android-runtime/src/main/assets/sources-runtime/node_modules/stream-shift",
+      "licenseFiles": [
+        "legal/licenses/embedded-node/stream-shift-1.0.3/LICENSE"
+      ],
+      "repository": {
+        "type": "git",
+        "url": "https://github.com/mafintosh/stream-shift.git"
+      }
+    },
+    {
+      "category": "embedded-node",
+      "name": "string_decoder",
+      "version": "1.3.0",
+      "declaredLicense": "MIT",
+      "source": "vendor/android-runtime/src/main/assets/sources-runtime/node_modules/string_decoder",
+      "licenseFiles": [
+        "legal/licenses/embedded-node/string_decoder-1.3.0/LICENSE"
+      ],
+      "repository": {
+        "type": "git",
+        "url": "git://github.com/nodejs/string_decoder.git"
+      }
+    },
+    {
+      "category": "embedded-node",
+      "name": "strip-json-comments",
+      "version": "3.1.1",
+      "declaredLicense": "MIT",
+      "source": "vendor/android-runtime/src/main/assets/sources-runtime/node_modules/strip-json-comments",
+      "licenseFiles": [
+        "legal/licenses/embedded-node/strip-json-comments-3.1.1/license"
+      ],
+      "repository": "sindresorhus/strip-json-comments"
+    },
+    {
+      "category": "embedded-node",
+      "name": "supports-color",
+      "version": "5.5.0",
+      "declaredLicense": "MIT",
+      "source": "vendor/android-runtime/src/main/assets/sources-runtime/node_modules/supports-color",
+      "licenseFiles": [
+        "legal/licenses/embedded-node/supports-color-5.5.0/license"
+      ],
+      "repository": "chalk/supports-color"
+    },
+    {
+      "category": "embedded-node",
+      "name": "util-deprecate",
+      "version": "1.0.2",
+      "declaredLicense": "MIT",
+      "source": "vendor/android-runtime/src/main/assets/sources-runtime/node_modules/util-deprecate",
+      "licenseFiles": [
+        "legal/licenses/embedded-node/util-deprecate-1.0.2/LICENSE"
+      ],
+      "repository": {
+        "type": "git",
+        "url": "git://github.com/TooTallNate/util-deprecate.git"
+      }
+    },
+    {
+      "category": "embedded-node",
+      "name": "wrappy",
+      "version": "1.0.2",
+      "declaredLicense": "ISC",
+      "source": "vendor/android-runtime/src/main/assets/sources-runtime/node_modules/wrappy",
+      "licenseFiles": [
+        "legal/licenses/embedded-node/wrappy-1.0.2/LICENSE"
+      ],
+      "repository": {
+        "type": "git",
+        "url": "https://github.com/npm/wrappy"
+      }
+    },
+    {
+      "category": "android-runtime",
+      "name": "androidx.activity:activity",
+      "version": "1.9.2",
+      "declaredLicenses": [
+        {
+          "name": "The Apache Software License, Version 2.0",
+          "url": "http://www.apache.org/licenses/LICENSE-2.0.txt"
+        }
+      ],
+      "licenseFiles": [
+        "legal/licenses/Apache-2.0.txt"
+      ],
+      "source": "Maven androidx.activity:activity:1.9.2",
+      "licenseMapping": "Resolved Maven POM Apache-2.0 declaration; AndroidX/JetBrains/Guava/Cordova primary project terms where POM omits it. No custom notice found in resolved archive."
+    },
+    {
+      "category": "android-runtime",
+      "name": "androidx.annotation:annotation",
+      "version": "1.8.1",
+      "declaredLicenses": [
+        {
+          "name": "The Apache Software License, Version 2.0",
+          "url": "http://www.apache.org/licenses/LICENSE-2.0.txt"
+        }
+      ],
+      "licenseFiles": [
+        "legal/licenses/Apache-2.0.txt"
+      ],
+      "source": "Maven androidx.annotation:annotation:1.8.1",
+      "licenseMapping": "Resolved Maven POM Apache-2.0 declaration; AndroidX/JetBrains/Guava/Cordova primary project terms where POM omits it. No custom notice found in resolved archive."
+    },
+    {
+      "category": "android-runtime",
+      "name": "androidx.annotation:annotation-experimental",
+      "version": "1.4.1",
+      "declaredLicenses": [
+        {
+          "name": "The Apache Software License, Version 2.0",
+          "url": "http://www.apache.org/licenses/LICENSE-2.0.txt"
+        }
+      ],
+      "licenseFiles": [
+        "legal/licenses/Apache-2.0.txt"
+      ],
+      "source": "Maven androidx.annotation:annotation-experimental:1.4.1",
+      "licenseMapping": "Resolved Maven POM Apache-2.0 declaration; AndroidX/JetBrains/Guava/Cordova primary project terms where POM omits it. No custom notice found in resolved archive."
+    },
+    {
+      "category": "android-runtime",
+      "name": "androidx.annotation:annotation-jvm",
+      "version": "1.8.1",
+      "declaredLicenses": [
+        {
+          "name": "The Apache Software License, Version 2.0",
+          "url": "http://www.apache.org/licenses/LICENSE-2.0.txt"
+        }
+      ],
+      "licenseFiles": [
+        "legal/licenses/Apache-2.0.txt"
+      ],
+      "source": "Maven androidx.annotation:annotation-jvm:1.8.1",
+      "licenseMapping": "Resolved Maven POM Apache-2.0 declaration; AndroidX/JetBrains/Guava/Cordova primary project terms where POM omits it. No custom notice found in resolved archive."
+    },
+    {
+      "category": "android-runtime",
+      "name": "androidx.appcompat:appcompat",
+      "version": "1.7.0",
+      "declaredLicenses": [
+        {
+          "name": "The Apache Software License, Version 2.0",
+          "url": "http://www.apache.org/licenses/LICENSE-2.0.txt"
+        }
+      ],
+      "licenseFiles": [
+        "legal/licenses/Apache-2.0.txt"
+      ],
+      "source": "Maven androidx.appcompat:appcompat:1.7.0",
+      "licenseMapping": "Resolved Maven POM Apache-2.0 declaration; AndroidX/JetBrains/Guava/Cordova primary project terms where POM omits it. No custom notice found in resolved archive."
+    },
+    {
+      "category": "android-runtime",
+      "name": "androidx.appcompat:appcompat-resources",
+      "version": "1.7.0",
+      "declaredLicenses": [
+        {
+          "name": "The Apache Software License, Version 2.0",
+          "url": "http://www.apache.org/licenses/LICENSE-2.0.txt"
+        }
+      ],
+      "licenseFiles": [
+        "legal/licenses/Apache-2.0.txt"
+      ],
+      "source": "Maven androidx.appcompat:appcompat-resources:1.7.0",
+      "licenseMapping": "Resolved Maven POM Apache-2.0 declaration; AndroidX/JetBrains/Guava/Cordova primary project terms where POM omits it. No custom notice found in resolved archive."
+    },
+    {
+      "category": "android-runtime",
+      "name": "androidx.arch.core:core-common",
+      "version": "2.2.0",
+      "declaredLicenses": [
+        {
+          "name": "The Apache Software License, Version 2.0",
+          "url": "http://www.apache.org/licenses/LICENSE-2.0.txt"
+        }
+      ],
+      "licenseFiles": [
+        "legal/licenses/Apache-2.0.txt"
+      ],
+      "source": "Maven androidx.arch.core:core-common:2.2.0",
+      "licenseMapping": "Resolved Maven POM Apache-2.0 declaration; AndroidX/JetBrains/Guava/Cordova primary project terms where POM omits it. No custom notice found in resolved archive."
+    },
+    {
+      "category": "android-runtime",
+      "name": "androidx.arch.core:core-runtime",
+      "version": "2.2.0",
+      "declaredLicenses": [
+        {
+          "name": "The Apache Software License, Version 2.0",
+          "url": "http://www.apache.org/licenses/LICENSE-2.0.txt"
+        }
+      ],
+      "licenseFiles": [
+        "legal/licenses/Apache-2.0.txt"
+      ],
+      "source": "Maven androidx.arch.core:core-runtime:2.2.0",
+      "licenseMapping": "Resolved Maven POM Apache-2.0 declaration; AndroidX/JetBrains/Guava/Cordova primary project terms where POM omits it. No custom notice found in resolved archive."
+    },
+    {
+      "category": "android-runtime",
+      "name": "androidx.collection:collection",
+      "version": "1.4.2",
+      "declaredLicenses": [
+        {
+          "name": "The Apache Software License, Version 2.0",
+          "url": "http://www.apache.org/licenses/LICENSE-2.0.txt"
+        }
+      ],
+      "licenseFiles": [
+        "legal/licenses/Apache-2.0.txt"
+      ],
+      "source": "Maven androidx.collection:collection:1.4.2",
+      "licenseMapping": "Resolved Maven POM Apache-2.0 declaration; AndroidX/JetBrains/Guava/Cordova primary project terms where POM omits it. No custom notice found in resolved archive."
+    },
+    {
+      "category": "android-runtime",
+      "name": "androidx.collection:collection-jvm",
+      "version": "1.4.2",
+      "declaredLicenses": [
+        {
+          "name": "The Apache Software License, Version 2.0",
+          "url": "http://www.apache.org/licenses/LICENSE-2.0.txt"
+        }
+      ],
+      "licenseFiles": [
+        "legal/licenses/Apache-2.0.txt"
+      ],
+      "source": "Maven androidx.collection:collection-jvm:1.4.2",
+      "licenseMapping": "Resolved Maven POM Apache-2.0 declaration; AndroidX/JetBrains/Guava/Cordova primary project terms where POM omits it. No custom notice found in resolved archive."
+    },
+    {
+      "category": "android-runtime",
+      "name": "androidx.concurrent:concurrent-futures",
+      "version": "1.1.0",
+      "declaredLicenses": [
+        {
+          "name": "The Apache Software License, Version 2.0",
+          "url": "http://www.apache.org/licenses/LICENSE-2.0.txt"
+        }
+      ],
+      "licenseFiles": [
+        "legal/licenses/Apache-2.0.txt"
+      ],
+      "source": "Maven androidx.concurrent:concurrent-futures:1.1.0",
+      "licenseMapping": "Resolved Maven POM Apache-2.0 declaration; AndroidX/JetBrains/Guava/Cordova primary project terms where POM omits it. No custom notice found in resolved archive."
+    },
+    {
+      "category": "android-runtime",
+      "name": "androidx.coordinatorlayout:coordinatorlayout",
+      "version": "1.2.0",
+      "declaredLicenses": [
+        {
+          "name": "The Apache Software License, Version 2.0",
+          "url": "http://www.apache.org/licenses/LICENSE-2.0.txt"
+        }
+      ],
+      "licenseFiles": [
+        "legal/licenses/Apache-2.0.txt"
+      ],
+      "source": "Maven androidx.coordinatorlayout:coordinatorlayout:1.2.0",
+      "licenseMapping": "Resolved Maven POM Apache-2.0 declaration; AndroidX/JetBrains/Guava/Cordova primary project terms where POM omits it. No custom notice found in resolved archive."
+    },
+    {
+      "category": "android-runtime",
+      "name": "androidx.core:core",
+      "version": "1.15.0",
+      "declaredLicenses": [
+        {
+          "name": "The Apache Software License, Version 2.0",
+          "url": "http://www.apache.org/licenses/LICENSE-2.0.txt"
+        }
+      ],
+      "licenseFiles": [
+        "legal/licenses/maven/androidx.core.core-1.15.0/META-INF__androidx__core__core__LICENSE.txt"
+      ],
+      "source": "Maven androidx.core:core:1.15.0"
+    },
+    {
+      "category": "android-runtime",
+      "name": "androidx.core:core-ktx",
+      "version": "1.15.0",
+      "declaredLicenses": [
+        {
+          "name": "The Apache Software License, Version 2.0",
+          "url": "http://www.apache.org/licenses/LICENSE-2.0.txt"
+        }
+      ],
+      "licenseFiles": [
+        "legal/licenses/maven/androidx.core.core-ktx-1.15.0/META-INF__androidx__core__core-ktx__LICENSE.txt"
+      ],
+      "source": "Maven androidx.core:core-ktx:1.15.0"
+    },
+    {
+      "category": "android-runtime",
+      "name": "androidx.core:core-splashscreen",
+      "version": "1.0.1",
+      "declaredLicenses": [
+        {
+          "name": "The Apache Software License, Version 2.0",
+          "url": "http://www.apache.org/licenses/LICENSE-2.0.txt"
+        }
+      ],
+      "licenseFiles": [
+        "legal/licenses/Apache-2.0.txt"
+      ],
+      "source": "Maven androidx.core:core-splashscreen:1.0.1",
+      "licenseMapping": "Resolved Maven POM Apache-2.0 declaration; AndroidX/JetBrains/Guava/Cordova primary project terms where POM omits it. No custom notice found in resolved archive."
+    },
+    {
+      "category": "android-runtime",
+      "name": "androidx.cursoradapter:cursoradapter",
+      "version": "1.0.0",
+      "declaredLicenses": [
+        {
+          "name": "The Apache Software License, Version 2.0",
+          "url": "http://www.apache.org/licenses/LICENSE-2.0.txt"
+        }
+      ],
+      "licenseFiles": [
+        "legal/licenses/Apache-2.0.txt"
+      ],
+      "source": "Maven androidx.cursoradapter:cursoradapter:1.0.0",
+      "licenseMapping": "Resolved Maven POM Apache-2.0 declaration; AndroidX/JetBrains/Guava/Cordova primary project terms where POM omits it. No custom notice found in resolved archive."
+    },
+    {
+      "category": "android-runtime",
+      "name": "androidx.customview:customview",
+      "version": "1.0.0",
+      "declaredLicenses": [
+        {
+          "name": "The Apache Software License, Version 2.0",
+          "url": "http://www.apache.org/licenses/LICENSE-2.0.txt"
+        }
+      ],
+      "licenseFiles": [
+        "legal/licenses/Apache-2.0.txt"
+      ],
+      "source": "Maven androidx.customview:customview:1.0.0",
+      "licenseMapping": "Resolved Maven POM Apache-2.0 declaration; AndroidX/JetBrains/Guava/Cordova primary project terms where POM omits it. No custom notice found in resolved archive."
+    },
+    {
+      "category": "android-runtime",
+      "name": "androidx.drawerlayout:drawerlayout",
+      "version": "1.0.0",
+      "declaredLicenses": [
+        {
+          "name": "The Apache Software License, Version 2.0",
+          "url": "http://www.apache.org/licenses/LICENSE-2.0.txt"
+        }
+      ],
+      "licenseFiles": [
+        "legal/licenses/Apache-2.0.txt"
+      ],
+      "source": "Maven androidx.drawerlayout:drawerlayout:1.0.0",
+      "licenseMapping": "Resolved Maven POM Apache-2.0 declaration; AndroidX/JetBrains/Guava/Cordova primary project terms where POM omits it. No custom notice found in resolved archive."
+    },
+    {
+      "category": "android-runtime",
+      "name": "androidx.emoji2:emoji2",
+      "version": "1.3.0",
+      "declaredLicenses": [
+        {
+          "name": "The Apache Software License, Version 2.0",
+          "url": "http://www.apache.org/licenses/LICENSE-2.0.txt"
+        }
+      ],
+      "licenseFiles": [
+        "legal/licenses/Apache-2.0.txt"
+      ],
+      "source": "Maven androidx.emoji2:emoji2:1.3.0",
+      "licenseMapping": "Resolved Maven POM Apache-2.0 declaration; AndroidX/JetBrains/Guava/Cordova primary project terms where POM omits it. No custom notice found in resolved archive."
+    },
+    {
+      "category": "android-runtime",
+      "name": "androidx.emoji2:emoji2-views-helper",
+      "version": "1.3.0",
+      "declaredLicenses": [
+        {
+          "name": "The Apache Software License, Version 2.0",
+          "url": "http://www.apache.org/licenses/LICENSE-2.0.txt"
+        }
+      ],
+      "licenseFiles": [
+        "legal/licenses/Apache-2.0.txt"
+      ],
+      "source": "Maven androidx.emoji2:emoji2-views-helper:1.3.0",
+      "licenseMapping": "Resolved Maven POM Apache-2.0 declaration; AndroidX/JetBrains/Guava/Cordova primary project terms where POM omits it. No custom notice found in resolved archive."
+    },
+    {
+      "category": "android-runtime",
+      "name": "androidx.fragment:fragment",
+      "version": "1.8.4",
+      "declaredLicenses": [
+        {
+          "name": "The Apache Software License, Version 2.0",
+          "url": "http://www.apache.org/licenses/LICENSE-2.0.txt"
+        }
+      ],
+      "licenseFiles": [
+        "legal/licenses/Apache-2.0.txt"
+      ],
+      "source": "Maven androidx.fragment:fragment:1.8.4",
+      "licenseMapping": "Resolved Maven POM Apache-2.0 declaration; AndroidX/JetBrains/Guava/Cordova primary project terms where POM omits it. No custom notice found in resolved archive."
+    },
+    {
+      "category": "android-runtime",
+      "name": "androidx.interpolator:interpolator",
+      "version": "1.0.0",
+      "declaredLicenses": [
+        {
+          "name": "The Apache Software License, Version 2.0",
+          "url": "http://www.apache.org/licenses/LICENSE-2.0.txt"
+        }
+      ],
+      "licenseFiles": [
+        "legal/licenses/Apache-2.0.txt"
+      ],
+      "source": "Maven androidx.interpolator:interpolator:1.0.0",
+      "licenseMapping": "Resolved Maven POM Apache-2.0 declaration; AndroidX/JetBrains/Guava/Cordova primary project terms where POM omits it. No custom notice found in resolved archive."
+    },
+    {
+      "category": "android-runtime",
+      "name": "androidx.lifecycle:lifecycle-common",
+      "version": "2.6.2",
+      "declaredLicenses": [
+        {
+          "name": "The Apache Software License, Version 2.0",
+          "url": "http://www.apache.org/licenses/LICENSE-2.0.txt"
+        }
+      ],
+      "licenseFiles": [
+        "legal/licenses/Apache-2.0.txt"
+      ],
+      "source": "Maven androidx.lifecycle:lifecycle-common:2.6.2",
+      "licenseMapping": "Resolved Maven POM Apache-2.0 declaration; AndroidX/JetBrains/Guava/Cordova primary project terms where POM omits it. No custom notice found in resolved archive."
+    },
+    {
+      "category": "android-runtime",
+      "name": "androidx.lifecycle:lifecycle-livedata",
+      "version": "2.6.2",
+      "declaredLicenses": [
+        {
+          "name": "The Apache Software License, Version 2.0",
+          "url": "http://www.apache.org/licenses/LICENSE-2.0.txt"
+        }
+      ],
+      "licenseFiles": [
+        "legal/licenses/Apache-2.0.txt"
+      ],
+      "source": "Maven androidx.lifecycle:lifecycle-livedata:2.6.2",
+      "licenseMapping": "Resolved Maven POM Apache-2.0 declaration; AndroidX/JetBrains/Guava/Cordova primary project terms where POM omits it. No custom notice found in resolved archive."
+    },
+    {
+      "category": "android-runtime",
+      "name": "androidx.lifecycle:lifecycle-livedata-core",
+      "version": "2.6.2",
+      "declaredLicenses": [
+        {
+          "name": "The Apache Software License, Version 2.0",
+          "url": "http://www.apache.org/licenses/LICENSE-2.0.txt"
+        }
+      ],
+      "licenseFiles": [
+        "legal/licenses/Apache-2.0.txt"
+      ],
+      "source": "Maven androidx.lifecycle:lifecycle-livedata-core:2.6.2",
+      "licenseMapping": "Resolved Maven POM Apache-2.0 declaration; AndroidX/JetBrains/Guava/Cordova primary project terms where POM omits it. No custom notice found in resolved archive."
+    },
+    {
+      "category": "android-runtime",
+      "name": "androidx.lifecycle:lifecycle-process",
+      "version": "2.6.2",
+      "declaredLicenses": [
+        {
+          "name": "The Apache Software License, Version 2.0",
+          "url": "http://www.apache.org/licenses/LICENSE-2.0.txt"
+        }
+      ],
+      "licenseFiles": [
+        "legal/licenses/Apache-2.0.txt"
+      ],
+      "source": "Maven androidx.lifecycle:lifecycle-process:2.6.2",
+      "licenseMapping": "Resolved Maven POM Apache-2.0 declaration; AndroidX/JetBrains/Guava/Cordova primary project terms where POM omits it. No custom notice found in resolved archive."
+    },
+    {
+      "category": "android-runtime",
+      "name": "androidx.lifecycle:lifecycle-runtime",
+      "version": "2.6.2",
+      "declaredLicenses": [
+        {
+          "name": "The Apache Software License, Version 2.0",
+          "url": "http://www.apache.org/licenses/LICENSE-2.0.txt"
+        }
+      ],
+      "licenseFiles": [
+        "legal/licenses/Apache-2.0.txt"
+      ],
+      "source": "Maven androidx.lifecycle:lifecycle-runtime:2.6.2",
+      "licenseMapping": "Resolved Maven POM Apache-2.0 declaration; AndroidX/JetBrains/Guava/Cordova primary project terms where POM omits it. No custom notice found in resolved archive."
+    },
+    {
+      "category": "android-runtime",
+      "name": "androidx.lifecycle:lifecycle-viewmodel",
+      "version": "2.6.2",
+      "declaredLicenses": [
+        {
+          "name": "The Apache Software License, Version 2.0",
+          "url": "http://www.apache.org/licenses/LICENSE-2.0.txt"
+        }
+      ],
+      "licenseFiles": [
+        "legal/licenses/Apache-2.0.txt"
+      ],
+      "source": "Maven androidx.lifecycle:lifecycle-viewmodel:2.6.2",
+      "licenseMapping": "Resolved Maven POM Apache-2.0 declaration; AndroidX/JetBrains/Guava/Cordova primary project terms where POM omits it. No custom notice found in resolved archive."
+    },
+    {
+      "category": "android-runtime",
+      "name": "androidx.lifecycle:lifecycle-viewmodel-savedstate",
+      "version": "2.6.2",
+      "declaredLicenses": [
+        {
+          "name": "The Apache Software License, Version 2.0",
+          "url": "http://www.apache.org/licenses/LICENSE-2.0.txt"
+        }
+      ],
+      "licenseFiles": [
+        "legal/licenses/Apache-2.0.txt"
+      ],
+      "source": "Maven androidx.lifecycle:lifecycle-viewmodel-savedstate:2.6.2",
+      "licenseMapping": "Resolved Maven POM Apache-2.0 declaration; AndroidX/JetBrains/Guava/Cordova primary project terms where POM omits it. No custom notice found in resolved archive."
+    },
+    {
+      "category": "android-runtime",
+      "name": "androidx.loader:loader",
+      "version": "1.0.0",
+      "declaredLicenses": [
+        {
+          "name": "The Apache Software License, Version 2.0",
+          "url": "http://www.apache.org/licenses/LICENSE-2.0.txt"
+        }
+      ],
+      "licenseFiles": [
+        "legal/licenses/Apache-2.0.txt"
+      ],
+      "source": "Maven androidx.loader:loader:1.0.0",
+      "licenseMapping": "Resolved Maven POM Apache-2.0 declaration; AndroidX/JetBrains/Guava/Cordova primary project terms where POM omits it. No custom notice found in resolved archive."
+    },
+    {
+      "category": "android-runtime",
+      "name": "androidx.profileinstaller:profileinstaller",
+      "version": "1.3.1",
+      "declaredLicenses": [
+        {
+          "name": "The Apache Software License, Version 2.0",
+          "url": "http://www.apache.org/licenses/LICENSE-2.0.txt"
+        }
+      ],
+      "licenseFiles": [
+        "legal/licenses/Apache-2.0.txt"
+      ],
+      "source": "Maven androidx.profileinstaller:profileinstaller:1.3.1",
+      "licenseMapping": "Resolved Maven POM Apache-2.0 declaration; AndroidX/JetBrains/Guava/Cordova primary project terms where POM omits it. No custom notice found in resolved archive."
+    },
+    {
+      "category": "android-runtime",
+      "name": "androidx.resourceinspection:resourceinspection-annotation",
+      "version": "1.0.1",
+      "declaredLicenses": [
+        {
+          "name": "The Apache Software License, Version 2.0",
+          "url": "http://www.apache.org/licenses/LICENSE-2.0.txt"
+        }
+      ],
+      "licenseFiles": [
+        "legal/licenses/Apache-2.0.txt"
+      ],
+      "source": "Maven androidx.resourceinspection:resourceinspection-annotation:1.0.1",
+      "licenseMapping": "Resolved Maven POM Apache-2.0 declaration; AndroidX/JetBrains/Guava/Cordova primary project terms where POM omits it. No custom notice found in resolved archive."
+    },
+    {
+      "category": "android-runtime",
+      "name": "androidx.savedstate:savedstate",
+      "version": "1.2.1",
+      "declaredLicenses": [
+        {
+          "name": "The Apache Software License, Version 2.0",
+          "url": "http://www.apache.org/licenses/LICENSE-2.0.txt"
+        }
+      ],
+      "licenseFiles": [
+        "legal/licenses/Apache-2.0.txt"
+      ],
+      "source": "Maven androidx.savedstate:savedstate:1.2.1",
+      "licenseMapping": "Resolved Maven POM Apache-2.0 declaration; AndroidX/JetBrains/Guava/Cordova primary project terms where POM omits it. No custom notice found in resolved archive."
+    },
+    {
+      "category": "android-runtime",
+      "name": "androidx.startup:startup-runtime",
+      "version": "1.1.1",
+      "declaredLicenses": [
+        {
+          "name": "The Apache Software License, Version 2.0",
+          "url": "http://www.apache.org/licenses/LICENSE-2.0.txt"
+        }
+      ],
+      "licenseFiles": [
+        "legal/licenses/Apache-2.0.txt"
+      ],
+      "source": "Maven androidx.startup:startup-runtime:1.1.1",
+      "licenseMapping": "Resolved Maven POM Apache-2.0 declaration; AndroidX/JetBrains/Guava/Cordova primary project terms where POM omits it. No custom notice found in resolved archive."
+    },
+    {
+      "category": "android-runtime",
+      "name": "androidx.tracing:tracing",
+      "version": "1.2.0",
+      "declaredLicenses": [
+        {
+          "name": "The Apache Software License, Version 2.0",
+          "url": "http://www.apache.org/licenses/LICENSE-2.0.txt"
+        }
+      ],
+      "licenseFiles": [
+        "legal/licenses/Apache-2.0.txt"
+      ],
+      "source": "Maven androidx.tracing:tracing:1.2.0",
+      "licenseMapping": "Resolved Maven POM Apache-2.0 declaration; AndroidX/JetBrains/Guava/Cordova primary project terms where POM omits it. No custom notice found in resolved archive."
+    },
+    {
+      "category": "android-runtime",
+      "name": "androidx.vectordrawable:vectordrawable",
+      "version": "1.1.0",
+      "declaredLicenses": [
+        {
+          "name": "The Apache Software License, Version 2.0",
+          "url": "http://www.apache.org/licenses/LICENSE-2.0.txt"
+        }
+      ],
+      "licenseFiles": [
+        "legal/licenses/Apache-2.0.txt"
+      ],
+      "source": "Maven androidx.vectordrawable:vectordrawable:1.1.0",
+      "licenseMapping": "Resolved Maven POM Apache-2.0 declaration; AndroidX/JetBrains/Guava/Cordova primary project terms where POM omits it. No custom notice found in resolved archive."
+    },
+    {
+      "category": "android-runtime",
+      "name": "androidx.vectordrawable:vectordrawable-animated",
+      "version": "1.1.0",
+      "declaredLicenses": [
+        {
+          "name": "The Apache Software License, Version 2.0",
+          "url": "http://www.apache.org/licenses/LICENSE-2.0.txt"
+        }
+      ],
+      "licenseFiles": [
+        "legal/licenses/Apache-2.0.txt"
+      ],
+      "source": "Maven androidx.vectordrawable:vectordrawable-animated:1.1.0",
+      "licenseMapping": "Resolved Maven POM Apache-2.0 declaration; AndroidX/JetBrains/Guava/Cordova primary project terms where POM omits it. No custom notice found in resolved archive."
+    },
+    {
+      "category": "android-runtime",
+      "name": "androidx.versionedparcelable:versionedparcelable",
+      "version": "1.1.1",
+      "declaredLicenses": [
+        {
+          "name": "The Apache Software License, Version 2.0",
+          "url": "http://www.apache.org/licenses/LICENSE-2.0.txt"
+        }
+      ],
+      "licenseFiles": [
+        "legal/licenses/Apache-2.0.txt"
+      ],
+      "source": "Maven androidx.versionedparcelable:versionedparcelable:1.1.1",
+      "licenseMapping": "Resolved Maven POM Apache-2.0 declaration; AndroidX/JetBrains/Guava/Cordova primary project terms where POM omits it. No custom notice found in resolved archive."
+    },
+    {
+      "category": "android-runtime",
+      "name": "androidx.viewpager:viewpager",
+      "version": "1.0.0",
+      "declaredLicenses": [
+        {
+          "name": "The Apache Software License, Version 2.0",
+          "url": "http://www.apache.org/licenses/LICENSE-2.0.txt"
+        }
+      ],
+      "licenseFiles": [
+        "legal/licenses/Apache-2.0.txt"
+      ],
+      "source": "Maven androidx.viewpager:viewpager:1.0.0",
+      "licenseMapping": "Resolved Maven POM Apache-2.0 declaration; AndroidX/JetBrains/Guava/Cordova primary project terms where POM omits it. No custom notice found in resolved archive."
+    },
+    {
+      "category": "android-runtime",
+      "name": "androidx.webkit:webkit",
+      "version": "1.12.1",
+      "declaredLicenses": [
+        {
+          "name": "The Apache Software License, Version 2.0",
+          "url": "http://www.apache.org/licenses/LICENSE-2.0.txt"
+        }
+      ],
+      "licenseFiles": [
+        "legal/licenses/maven/androidx.webkit.webkit-1.12.1/META-INF__androidx__webkit__webkit__LICENSE.txt"
+      ],
+      "source": "Maven androidx.webkit:webkit:1.12.1"
+    },
+    {
+      "category": "android-runtime",
+      "name": "com.google.guava:listenablefuture",
+      "version": "1.0",
+      "declaredLicenses": [],
+      "licenseFiles": [
+        "legal/licenses/Apache-2.0.txt"
+      ],
+      "source": "Maven com.google.guava:listenablefuture:1.0",
+      "licenseMapping": "Resolved Maven POM Apache-2.0 declaration; AndroidX/JetBrains/Guava/Cordova primary project terms where POM omits it. No custom notice found in resolved archive."
+    },
+    {
+      "category": "android-runtime",
+      "name": "com.google.zxing:core",
+      "version": "3.5.3",
+      "declaredLicenses": [],
+      "licenseFiles": [
+        "legal/licenses/ZXing-APACHE-2.0.txt",
+        "legal/licenses/ZXing-NOTICE.txt"
+      ],
+      "source": "Maven com.google.zxing:core:3.5.3",
+      "licenseMapping": "ZXing core POM source header and canonical tagged repository license/notice."
+    },
+    {
+      "category": "android-runtime",
+      "name": "net.java.dev.jna:jna",
+      "version": "5.17.0",
+      "declaredLicenses": [
+        {
+          "name": "LGPL-2.1-or-later",
+          "url": "https://www.gnu.org/licenses/old-licenses/lgpl-2.1"
+        },
+        {
+          "name": "Apache-2.0",
+          "url": "https://www.apache.org/licenses/LICENSE-2.0.txt"
+        }
+      ],
+      "licenseFiles": [
+        "legal/licenses/maven/net.java.dev.jna.jna-5.17.0/META-INF__LICENSE"
+      ],
+      "source": "Maven net.java.dev.jna:jna:5.17.0"
+    },
+    {
+      "category": "android-runtime",
+      "name": "org.apache.cordova:framework",
+      "version": "10.1.1",
+      "declaredLicenses": [
+        {
+          "name": "Apache License, Version 2.0",
+          "url": "https://www.apache.org/licenses/LICENSE-2.0.txt"
+        }
+      ],
+      "licenseFiles": [
+        "legal/licenses/Cordova-Android-APACHE-2.0.txt",
+        "legal/licenses/Cordova-Android-NOTICE.txt"
+      ],
+      "source": "Maven org.apache.cordova:framework:10.1.1",
+      "licenseMapping": "Resolved Maven POM Apache-2.0 declaration; AndroidX/JetBrains/Guava/Cordova primary project terms where POM omits it. No custom notice found in resolved archive."
+    },
+    {
+      "category": "android-runtime",
+      "name": "org.jetbrains:annotations",
+      "version": "13.0",
+      "declaredLicenses": [],
+      "licenseFiles": [
+        "legal/licenses/Apache-2.0.txt"
+      ],
+      "source": "Maven org.jetbrains:annotations:13.0",
+      "licenseMapping": "Resolved Maven POM Apache-2.0 declaration; AndroidX/JetBrains/Guava/Cordova primary project terms where POM omits it. No custom notice found in resolved archive."
+    },
+    {
+      "category": "android-runtime",
+      "name": "org.jetbrains.kotlin:kotlin-bom",
+      "version": "1.9.25",
+      "declaredLicenses": [
+        {
+          "name": "The Apache Software License, Version 2.0",
+          "url": "http://www.apache.org/licenses/LICENSE-2.0.txt"
+        }
+      ],
+      "licenseFiles": [
+        "legal/licenses/Kotlin-APACHE-2.0.txt",
+        "legal/licenses/Kotlin-NOTICE.txt"
+      ],
+      "source": "Maven org.jetbrains.kotlin:kotlin-bom:1.9.25",
+      "licenseMapping": "Resolved Maven POM Apache-2.0 declaration; AndroidX/JetBrains/Guava/Cordova primary project terms where POM omits it. No custom notice found in resolved archive."
+    },
+    {
+      "category": "android-runtime",
+      "name": "org.jetbrains.kotlin:kotlin-stdlib",
+      "version": "1.9.25",
+      "declaredLicenses": [
+        {
+          "name": "The Apache License, Version 2.0",
+          "url": "http://www.apache.org/licenses/LICENSE-2.0.txt"
+        }
+      ],
+      "licenseFiles": [
+        "legal/licenses/Kotlin-APACHE-2.0.txt",
+        "legal/licenses/Kotlin-NOTICE.txt"
+      ],
+      "source": "Maven org.jetbrains.kotlin:kotlin-stdlib:1.9.25",
+      "licenseMapping": "Resolved Maven POM Apache-2.0 declaration; AndroidX/JetBrains/Guava/Cordova primary project terms where POM omits it. No custom notice found in resolved archive."
+    },
+    {
+      "category": "android-runtime",
+      "name": "org.jetbrains.kotlin:kotlin-stdlib-common",
+      "version": "1.9.25",
+      "declaredLicenses": [
+        {
+          "name": "The Apache License, Version 2.0",
+          "url": "http://www.apache.org/licenses/LICENSE-2.0.txt"
+        }
+      ],
+      "licenseFiles": [
+        "legal/licenses/Kotlin-APACHE-2.0.txt",
+        "legal/licenses/Kotlin-NOTICE.txt"
+      ],
+      "source": "Maven org.jetbrains.kotlin:kotlin-stdlib-common:1.9.25",
+      "licenseMapping": "Resolved Maven POM Apache-2.0 declaration; AndroidX/JetBrains/Guava/Cordova primary project terms where POM omits it. No custom notice found in resolved archive."
+    },
+    {
+      "category": "android-runtime",
+      "name": "org.jetbrains.kotlin:kotlin-stdlib-jdk7",
+      "version": "1.9.25",
+      "declaredLicenses": [
+        {
+          "name": "The Apache License, Version 2.0",
+          "url": "http://www.apache.org/licenses/LICENSE-2.0.txt"
+        }
+      ],
+      "licenseFiles": [
+        "legal/licenses/Kotlin-APACHE-2.0.txt",
+        "legal/licenses/Kotlin-NOTICE.txt"
+      ],
+      "source": "Maven org.jetbrains.kotlin:kotlin-stdlib-jdk7:1.9.25",
+      "licenseMapping": "Resolved Maven POM Apache-2.0 declaration; AndroidX/JetBrains/Guava/Cordova primary project terms where POM omits it. No custom notice found in resolved archive."
+    },
+    {
+      "category": "android-runtime",
+      "name": "org.jetbrains.kotlin:kotlin-stdlib-jdk8",
+      "version": "1.9.25",
+      "declaredLicenses": [
+        {
+          "name": "The Apache License, Version 2.0",
+          "url": "http://www.apache.org/licenses/LICENSE-2.0.txt"
+        }
+      ],
+      "licenseFiles": [
+        "legal/licenses/Kotlin-APACHE-2.0.txt",
+        "legal/licenses/Kotlin-NOTICE.txt"
+      ],
+      "source": "Maven org.jetbrains.kotlin:kotlin-stdlib-jdk8:1.9.25",
+      "licenseMapping": "Resolved Maven POM Apache-2.0 declaration; AndroidX/JetBrains/Guava/Cordova primary project terms where POM omits it. No custom notice found in resolved archive."
+    },
+    {
+      "category": "android-runtime",
+      "name": "org.jetbrains.kotlinx:kotlinx-coroutines-android",
+      "version": "1.6.4",
+      "declaredLicenses": [
+        {
+          "name": "The Apache Software License, Version 2.0",
+          "url": "https://www.apache.org/licenses/LICENSE-2.0.txt"
+        }
+      ],
+      "licenseFiles": [
+        "legal/licenses/Kotlinx-Coroutines-APACHE-2.0.txt"
+      ],
+      "source": "Maven org.jetbrains.kotlinx:kotlinx-coroutines-android:1.6.4",
+      "licenseMapping": "Resolved Maven POM Apache-2.0 declaration; AndroidX/JetBrains/Guava/Cordova primary project terms where POM omits it. No custom notice found in resolved archive."
+    },
+    {
+      "category": "android-runtime",
+      "name": "org.jetbrains.kotlinx:kotlinx-coroutines-bom",
+      "version": "1.6.4",
+      "declaredLicenses": [
+        {
+          "name": "The Apache Software License, Version 2.0",
+          "url": "https://www.apache.org/licenses/LICENSE-2.0.txt"
+        }
+      ],
+      "licenseFiles": [
+        "legal/licenses/Kotlinx-Coroutines-APACHE-2.0.txt"
+      ],
+      "source": "Maven org.jetbrains.kotlinx:kotlinx-coroutines-bom:1.6.4",
+      "licenseMapping": "Resolved Maven POM Apache-2.0 declaration; AndroidX/JetBrains/Guava/Cordova primary project terms where POM omits it. No custom notice found in resolved archive."
+    },
+    {
+      "category": "android-runtime",
+      "name": "org.jetbrains.kotlinx:kotlinx-coroutines-core",
+      "version": "1.6.4",
+      "declaredLicenses": [
+        {
+          "name": "The Apache Software License, Version 2.0",
+          "url": "https://www.apache.org/licenses/LICENSE-2.0.txt"
+        }
+      ],
+      "licenseFiles": [
+        "legal/licenses/Kotlinx-Coroutines-APACHE-2.0.txt"
+      ],
+      "source": "Maven org.jetbrains.kotlinx:kotlinx-coroutines-core:1.6.4",
+      "licenseMapping": "Resolved Maven POM Apache-2.0 declaration; AndroidX/JetBrains/Guava/Cordova primary project terms where POM omits it. No custom notice found in resolved archive."
+    },
+    {
+      "category": "android-runtime",
+      "name": "org.jetbrains.kotlinx:kotlinx-coroutines-core-jvm",
+      "version": "1.6.4",
+      "declaredLicenses": [
+        {
+          "name": "The Apache Software License, Version 2.0",
+          "url": "https://www.apache.org/licenses/LICENSE-2.0.txt"
+        }
+      ],
+      "licenseFiles": [
+        "legal/licenses/Kotlinx-Coroutines-APACHE-2.0.txt"
+      ],
+      "source": "Maven org.jetbrains.kotlinx:kotlinx-coroutines-core-jvm:1.6.4",
+      "licenseMapping": "Resolved Maven POM Apache-2.0 declaration; AndroidX/JetBrains/Guava/Cordova primary project terms where POM omits it. No custom notice found in resolved archive."
+    }
+  ],
+  "nativeBinaries": [
+    {
+      "source": "vendor/android-runtime/src/main/jniLibs/arm64-v8a/libc++_shared.so",
+      "bytes": 6761584,
+      "sha256": "019b17aee5e6ea584a27d50529dccea21b13c8297e8e3708d1dbc182f1a4b805",
+      "inMobileArm64Apk": true
+    },
+    {
+      "source": "vendor/android-runtime/src/main/jniLibs/arm64-v8a/libnode.so",
+      "bytes": 62475584,
+      "sha256": "7c907316beb6e78e34495926c9ac1befe079369b14650d508ea812929258250c",
+      "inMobileArm64Apk": true
+    }
+  ],
+  "licenseSources": [
+    {
+      "file": "legal/licenses/frontend/_vue_devtools-api-6.6.4/LICENSE",
+      "source": "https://raw.githubusercontent.com/vuejs/devtools-v6/master/LICENSE",
+      "retrieved": "2026-10-25"
+    },
+    {
+      "file": "legal/licenses/YesPlayMusic-MIT.txt",
+      "source": "https://raw.githubusercontent.com/qier222/YesPlayMusic/master/LICENSE",
+      "retrieved": "2026-10-25"
+    },
+    {
+      "file": "legal/licenses/Apache-2.0.txt",
+      "source": "https://www.apache.org/licenses/LICENSE-2.0.txt",
+      "retrieved": "2026-10-25"
+    },
+    {
+      "file": "legal/licenses/Kotlin-APACHE-2.0.txt",
+      "source": "https://raw.githubusercontent.com/JetBrains/kotlin/v1.9.25/license/LICENSE.txt",
+      "retrieved": "2026-10-25"
+    },
+    {
+      "file": "legal/licenses/Kotlin-NOTICE.txt",
+      "source": "https://raw.githubusercontent.com/JetBrains/kotlin/v1.9.25/license/NOTICE.txt",
+      "retrieved": "2026-10-25"
+    },
+    {
+      "file": "legal/licenses/Kotlinx-Coroutines-APACHE-2.0.txt",
+      "source": "https://raw.githubusercontent.com/Kotlin/kotlinx.coroutines/1.6.4/LICENSE.txt",
+      "retrieved": "2026-10-25"
+    },
+    {
+      "file": "legal/licenses/Cordova-Android-APACHE-2.0.txt",
+      "source": "https://raw.githubusercontent.com/apache/cordova-android/10.1.1/LICENSE",
+      "retrieved": "2026-10-25"
+    },
+    {
+      "file": "legal/licenses/Cordova-Android-NOTICE.txt",
+      "source": "https://raw.githubusercontent.com/apache/cordova-android/10.1.1/NOTICE",
+      "retrieved": "2026-10-25"
+    },
+    {
+      "file": "legal/licenses/ZXing-APACHE-2.0.txt",
+      "source": "https://raw.githubusercontent.com/zxing/zxing/zxing-3.5.3/LICENSE",
+      "retrieved": "2026-10-25"
+    },
+    {
+      "file": "legal/licenses/ZXing-NOTICE.txt",
+      "source": "https://raw.githubusercontent.com/zxing/zxing/zxing-3.5.3/NOTICE",
+      "retrieved": "2026-10-25"
+    }
+  ],
+  "unresolvedLicenseFiles": []
+}

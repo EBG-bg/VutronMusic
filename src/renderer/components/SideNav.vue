@@ -1,57 +1,57 @@
 <template>
   <div class="side-nav">
-    <button-icon
+    <side-nav-item
       v-if="enableLibrary"
-      :class="{ active: isCurrentRoute('/') }"
+      :active="isCurrentRoute('/')"
       :data-tip="`${$t('nav.home')}`"
       @click="handleRoute('/')"
     >
       <svg-icon class="icon" icon-class="logo" />
-    </button-icon>
-    <button-icon
+    </side-nav-item>
+    <side-nav-item
       v-if="enableLibrary"
-      :class="{ active: isCurrentRoute('/explore') }"
+      :active="isCurrentRoute('/explore')"
       :data-tip="`${$t('nav.explore')}`"
       @click="handleRoute('/explore')"
     >
       <svg-icon class="icon" icon-class="explore" style="transform: scale(1.4)" />
-    </button-icon>
-    <button-icon
+    </side-nav-item>
+    <side-nav-item
       v-if="enableLibrary"
-      :class="{ active: isCurrentRoute('/library') }"
+      :active="isCurrentRoute('/library')"
       :data-tip="`${$t('nav.library')}`"
       @click="handleRoute('/library')"
     >
       <svg-icon class="icon" icon-class="library" />
-    </button-icon>
-    <button-icon
+    </side-nav-item>
+    <side-nav-item
       v-if="enableStream"
-      :class="{ active: isCurrentRoute('/stream') }"
+      :active="isCurrentRoute('/stream')"
       :data-tip="`${$t('nav.stream')}`"
       @click="handleRoute('/stream')"
     >
       <svg-icon class="icon" icon-class="stream-icon" style="transform: scale(0.9)"></svg-icon>
-    </button-icon>
-    <button-icon
+    </side-nav-item>
+    <side-nav-item
       v-if="isElectron && enableLocal"
-      :class="{ active: isCurrentRoute('/localMusic') }"
+      :active="isCurrentRoute('/localMusic')"
       :data-tip="`${$t('nav.localMusic')}`"
       @click="handleRoute('/localMusic')"
     >
       <svg-icon class="icon" icon-class="local-music" />
-    </button-icon>
-    <button-icon
-      :class="{ active: isCurrentRoute('/settings') }"
+    </side-nav-item>
+    <side-nav-item
+      :active="isCurrentRoute('/settings')"
       :data-tip="`${$t('nav.settings')}`"
       @click="handleRoute('/settings')"
     >
       <svg-icon class="icon" icon-class="settings" style="transform: scale(0.9)" />
-    </button-icon>
+    </side-nav-item>
   </div>
 </template>
 
 <script setup lang="ts">
-import ButtonIcon from './ButtonIcon.vue'
+import SideNavItem from '../../../packages/ui/src/SideNavItem.vue'
 import SvgIcon from './SvgIcon.vue'
 import { useRoute, useRouter } from 'vue-router'
 import { usePluginMusic } from '../store/pluginMusic'
@@ -74,7 +74,7 @@ const isCurrentRoute = (path: string): boolean => {
 }
 </script>
 
-<style scoped lang="scss">
+<style scoped>
 .side-nav {
   position: fixed;
   top: 50%;
@@ -90,40 +90,8 @@ const isCurrentRoute = (path: string): boolean => {
   background-color: var(--color-secondary-bg);
   border-radius: 12px;
   transform: translate(0, -50%);
-  button {
-    height: 40px;
-    width: 60px;
-    padding: 0;
-    margin: 15px 0;
-    -webkit-app-region: no-drag;
-    font-weight: 700;
-    text-decoration: none;
-    border-radius: 8px;
-    background-color: var(--color-secondary-bg);
-    transition: all 0.3s ease-in;
-    -webkit-user-drag: none;
-    position: relative;
-    .svg-icon {
-      width: 100px;
-      height: 40px;
-      transition: color 0.2s ease-in;
-    }
-    .icon {
-      width: 26px;
-      height: 26px;
-    }
-    &:hover {
-      background: var(--color-primary);
-      .icon {
-        color: white;
-      }
-    }
-    &:active {
-      transform: scale(0.92);
-      transition: 0.2s;
-    }
-  }
-  button::before {
+}
+.side-nav button::before {
     content: '';
     position: absolute;
     top: 50%;
@@ -133,7 +101,7 @@ const isCurrentRoute = (path: string): boolean => {
     transform: translate(60px, -50%);
     z-index: 1;
   }
-  button::after {
+.side-nav button::after {
     content: attr(data-tip);
     background-color: rgb(from var(--color-primary) r g b / 60%);
     color: white;
@@ -149,21 +117,12 @@ const isCurrentRoute = (path: string): boolean => {
     font-size: 16px;
     transform: translate(76px, -50%);
   }
-  button::after,
-  button::before {
+.side-nav button::after,
+.side-nav button::before {
     display: none;
   }
-  button:hover:after,
-  button:hover::before {
+.side-nav button:hover:after,
+.side-nav button:hover::before {
     display: block;
   }
-  button.active {
-    background: var(--color-primary);
-    color: white;
-    transition: background 0.2s ease-in;
-    .icon {
-      color: white;
-    }
-  }
-}
 </style>

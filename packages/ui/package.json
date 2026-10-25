@@ -1,0 +1,14 @@
+{
+  "name": "@vutronmusic/ui",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts",
+    "./ButtonIcon.vue": "./src/ButtonIcon.vue",
+    "./SideNavItem.vue": "./src/SideNavItem.vue"
+  },
+  "peerDependencies": {
+    "vue": "^3.5.10"
+  }
+}

@@ -5,12 +5,10 @@ import electronStore from '../store'
 import { pluginDbGet, pluginDbSet } from '../dbHelpers'
 import { fetch, Agent } from 'undici'
 import {
-  yrcLyricParse,
-  lrcLyricParse,
-  parseLyricString,
   getLyricFromEmbedded,
   getLyricFromPath
 } from '.'
+import { parseSharedLyricPayload, parseSharedLyricText } from './sharedCoreLyrics'
 import { LyricLine } from '@/types/plugin'
 import type { PluginCapabilities } from '@/types/schemas'
 import log from '../log'
@@ -153,13 +151,10 @@ export class PluginInstance {
 
       case 'LYRIC_PARSE': {
         let data: LyricLine[] = []
-        if (msg.msg.yrc?.lyric) {
-          data = yrcLyricParse(msg.msg) || []
-        } else if (msg.msg.lrc?.lyric) {
-          data = lrcLyricParse(msg.msg) || []
-        } else {
-          data = parseLyricString(msg.msg)
-        }
+        if (msg.msg && typeof msg.msg === 'object' &&
+            ('lrc' in msg.msg || 'tlyric' in msg.msg || 'yrc' in msg.msg || 'ytlrc' in msg.msg)) {
+          data = parseSharedLyricPayload(msg.msg)
+        } else if (typeof msg.msg === 'string') data = parseSharedLyricText(msg.msg)
         this.worker.postMessage({
           type: 'LYRIC_RESPONSE',
           requestId: msg.requestId,

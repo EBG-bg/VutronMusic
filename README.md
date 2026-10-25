@@ -1,72 +1,55 @@
-<div align="center">
-  <a href="https://github.com/stark81/VutronMusic" target="blank">
-    <img src="buildAssets/icons/icon.png" alt="Logo" width="156" height="156">
-  </a>
-  <h2  style="font-weight: 600">VutronMusic</h2>
-  <p>多数据源桌面音乐播放器</p>
-</div>
+﻿# Vutron Music - Mobile
 
-[![LocalMusic][localMusic-screenShot]](https://github.com/stark81/VutronMusic)
+VutronMusic 的 Android 移植 fork，基于 Vue 3、TypeScript、Pinia 和 Capacitor，复用上游图标、主题、共享歌词/封面逻辑以及共享按钮组件。当前版本：**1.0.0**。
 
-## 说明
+上游：[stark81/VutronMusic](https://github.com/stark81/VutronMusic)。Mobile fork 由 EBG-bg 维护，与上游作者及音乐平台不存在官方隶属或背书关系。原桌面介绍保存在 [README.upstream.md](README.upstream.md)，原许可证保存在 [LICENSE](LICENSE)。
 
-- 本项目为本人个人项目，仅用于个人学习研究，请勿用于商业用途。
-- 本项目大部份界面和功能参考 [YesPlayMusic](https://github.com/qier222/YesPlayMusic)，侧边导航栏设计参考"方格音乐"，本地音乐top部分的信息统计参考 [NSMusicS](https://github.com/Super-Badmen-Viper/NSMusicS)。
-- 本地歌曲的内嵌歌词以及外挂lrc歌词支持从[LDDC](https://github.com/chenmozhijin/LDDC)下载的逐字歌词歌词格式。
+## 功能
 
-- 账号登录问题可以从 [wiki - 账号登录](https://github.com/stark81/VutronMusic/wiki/%E8%B4%A6%E5%8F%B7%E7%99%BB%E9%99%86) 里查看解决方法。此外，[wiki](https://github.com/stark81/VutronMusic/wiki/) 里也包含了linux插件、逐字歌词、流媒体等方面的简要说明。
+- 网易云音乐二维码/Cookie 登录、首页推荐、搜索和歌单播放。
+- 本地文件夹、电脑本地歌单导入，以及歌曲/歌单/封面离线缓存。
+- 播放队列、下一首插队、歌曲与歌单独立音量、重启恢复进度及睡眠定时。
+- 原文/译文同步歌词、可选估算逐字、逐曲延迟微调、桌面悬浮歌词与调色。
+- 直接复用原版 SVG、主题，以及桌面/手机共用的 ButtonIcon、SideNavItem。
 
-## 特点
+各来源播放能力取决于该来源的可用性及用户拥有的权限。本项目不附带账号、Cookie、音乐文件或平台授权，也不承诺提供受限内容。
 
-- ⚡️ 手脚架为：[vutron](https://github.com/jooy2/vutron)；
-- ⚡️ 使用 Vue3 + TypeScript + Pinia + Fastify + better-sqlite3 + Zod 进行开发；
-- ⚡️ 插件化架构：支持多数据源聚合，可通过插件扩展新的音乐平台
-- ⚡️ 支持本地歌曲、离线歌单功能，本地歌曲支持读取外挂和内嵌封面歌词，支持逐字歌词功能，支持线上信息匹配；
-- ⚡️ 支持流媒体音乐，暂时包括：navidrome、jellyfin和emby；
-- ⚡️ 支持网易云、酷狗等在线音乐平台（通过插件系统）
-- ⚡️ 跨平台歌曲匹配：播放时自动匹配在线插件，获取歌词、评论等元数据
-- ⚡️ 支持Mac状态栏歌词、TouchBar歌词等；Linux下可通过[media-controls](https://github.com/stark81/media-controls)、[dynamic-music-pill](https://extensions.gnome.org/extension/9334/dynamic-music-pill/)插件(gnome桌面)或者[vutronmusic-lyrics](http://github.com/cmachsocket/org.kde.plasma.vutronmusic-lyrics)插件(kde桌面)将歌词显示在TopBar里；
-- ⚡️ 支持音效设置、变调变速等高级音频功能；
-- ⚡️ 支持云盘、歌曲评论等功能；
+## 安装与范围
 
-## 配置开发环境
+从本 fork 的 Releases 获取 `Vutron-Music-Mobile-1.0.0-arm64.apk`。当前只提供 ARM64；开发验收设备为 Mi 10 / Android 13 / HyperOS，其他设备仍需验证。1.0.0 源于已由维护者试用的 0.3.10，主要变化为公开名称/版本与发布资料。个人测试包、签名私钥、账号状态和测试记录不上传。
 
-```
-# 环境要求：Node.js >= 22.6.0，Yarn 1.22.22
-# 安装依赖
-yarn install
+为保持本地测试版覆盖升级与数据兼容，内部 applicationId 仍为 `io.github.vutronmusic.personal.webshell`；它不会在应用内显示个人版名称。运行中的媒体服务、缓存和桌面歌词行为沿用测试版。
 
-# 运行
-yarn dev（开发）
-yarn build（构建）
+## 构建
+
+需要 Node.js 22.16+、JDK 21、Android SDK Platform 35 / Build Tools 35+。在仓库根目录运行：
+
+```powershell
+./scripts/build-mobile.ps1 -Configuration Debug
 ```
 
-## 开源许可
+Linux/macOS：
 
-本项目仅供个人学习研究使用，禁止用于商业及非法用途。
+```sh
+sh scripts/build-mobile.sh Debug
+```
 
-基于 [MIT license](https://opensource.org/licenses/MIT) 许可进行开源。
+产物位于 `apps/android-vutron/android/app/build/outputs/apk/`。开发构建只需安装 `apps/android-vutron` 的 npm 依赖，不必安装整套 Electron 开发环境。详细说明见 [Android 构建说明](apps/android-vutron/README.md)。
 
-## 截图
+`vendor/android-runtime` 中的生产 JavaScript `node_modules` 与 ARM64 库是实际运行输入，必须保留。修改 LGPL 运行库后可按相同流程重新构建；对应源码、许可证和来源说明随仓库提供。
 
-![home-screenShot][home-screenShot] ![explore-screenShot][explore-screenShot] ![library-screenShot][library-screenShot] ![likepage-screenShot][likepage-screenShot] ![local-music-screenShot][local-music-screenShot] ![playlist-screenShot][playlist-screenShot] ![playpage-screenShot][playpage-screenShot] ![comment-screenShot][comment-screenShot] ![search-screenShot][search-screenShot] ![user-screenShot][user-screenShot] ![mv-screenShot][mv-screenShot] ![tray-lyric-screenShot][tray-lyric-screenShot] ![media-controls-screenShot][media-controls-screenShot]
+## 项目结构
 
-[localMusic-screenShot]: images/localMusic.jpg
-[home-screenShot]: images/home.jpg
-[explore-screenShot]: images/explore.jpg
-[library-screenShot]: images/library.jpg
-[likepage-screenShot]: images/like-page.jpg
-[local-music-screenShot]: images/local-music.jpg
-[playlist-screenShot]: images/playlists.jpg
-[playpage-screenShot]: images/play-page.jpg
-[comment-screenShot]: images/comment-page.jpg
-[search-screenShot]: images/search-lyric.jpg
-[setConvolver-screenShot]: images/setConvolver.jpg
-[user-screenShot]: images/user.jpg
-[tray-lyric-screenShot]: images/tray-TouchBar-lyric.jpg
-[mv-screenShot]: images/mv.jpg
-[media-controls-screenShot]: images/media-control-lyric.png
+- `apps/android-vutron`：Vue/Pinia Android UI 与 Capacitor 原生适配。
+- `packages/core`：桌面/Android 共享的歌词与封面规则。
+- `packages/ui`：从上游抽取并被桌面/Android 实际共用的控件。
+- `android/shared`：网络与本机会话适配。
+- `vendor/android-runtime`：经过验证的音源、匹配与音质运行时。
 
-## star趋势
+完整桌面页面尚未全部迁成共享组件。现有构建与定向测试不代表所有手机、平台接口或后台情形都已验证。
 
-[![Stargazers over time](https://starchart.cc/stark81/VutronMusic.svg?variant=adaptive)](https://starchart.cc/stark81/VutronMusic)
+## 隐私、许可与使用
+
+请阅读 [隐私说明](legal/PRIVACY.md)、[使用说明](legal/USE_POLICY.md)、[第三方声明](THIRD_PARTY_NOTICES.md)、[再分发说明](legal/REDISTRIBUTION.md) 和 [NOTICE](NOTICE)。根 MIT 文本保留原作者版权；第三方库分别适用其许可证，尤其内置 LGPL 组件不应被表述为全部 MIT。
+
+问题与反馈请使用本 fork 的 Issues，提交日志前自行删除账号、Cookie 和本地文件路径等个人信息。

@@ -1,0 +1,55 @@
+name: Mobile Android
+
+on:
+  push:
+    branches: [mobile]
+    paths:
+      - 'apps/android-vutron/**'
+      - 'packages/**'
+      - 'android/shared/**'
+      - 'vendor/android-runtime/**'
+      - 'scripts/build-mobile.*'
+      - 'src/renderer/assets/**'
+      - 'legal/**'
+      - 'LICENSE'
+      - 'NOTICE'
+      - 'THIRD_PARTY_NOTICES.md'
+      - '.github/workflows/mobile.yml'
+  pull_request:
+    branches: [mobile]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  android:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22.16.0
+          cache: npm
+          cache-dependency-path: apps/android-vutron/package-lock.json
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+      - uses: android-actions/setup-android@v3
+      - name: Install Android platform
+        run: sdkmanager 'platforms;android-35' 'build-tools;35.0.0'
+      - name: Check shared core
+        working-directory: packages/core
+        run: node --experimental-strip-types --test
+      - name: Build Mobile
+        run: sh scripts/build-mobile.sh Debug
+      - name: Native unit checks
+        working-directory: apps/android-vutron/android
+        run: sh ./gradlew :app:testDebugUnitTest --console=plain
+      - name: Upload CI test package
+        uses: actions/upload-artifact@v4
+        with:
+          name: Vutron-Music-Mobile-ci
+          path: apps/android-vutron/android/app/build/outputs/apk/debug/app-debug.apk
+          retention-days: 7

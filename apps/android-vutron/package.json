@@ -1,0 +1,27 @@
+{
+  "name": "vutronmusic-android-shell",
+  "private": true,
+  "version": "1.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "cap:add": "cap add android",
+    "cap:sync": "cap sync android",
+    "cap:open": "cap open android"
+  },
+  "dependencies": {
+    "@capacitor/android": "^7.4.0",
+    "@capacitor/app": "^7.1.2",
+    "@capacitor/core": "^7.4.0",
+    "@vutronmusic/core": "file:../../packages/core",
+    "pinia": "^2.1.7",
+    "vue": "^3.5.10"
+  },
+  "devDependencies": {
+    "@capacitor/cli": "^7.4.0",
+    "@vitejs/plugin-vue": "^5.0.4",
+    "typescript": "^6.0.0",
+    "vite": "^5.3.3"
+  }
+}

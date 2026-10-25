@@ -1,0 +1,3 @@
+# Vendored production dependencies are source inputs, intentionally versioned.
+!src/main/assets/sources-runtime/node_modules/
+!src/main/assets/sources-runtime/node_modules/**

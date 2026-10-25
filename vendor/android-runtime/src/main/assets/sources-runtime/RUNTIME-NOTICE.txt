@@ -1,0 +1,52 @@
+Embedded source matcher runtime
+
+Nodejs-Mobile 18.20.4: licenses/Nodejs-Mobile-LICENSE.txt
+JNA 5.17.0: licenses/JNA-LICENSE.txt and JNA-APACHE-2.0.txt (Apache-2.0 option)
+Android NDK r24 libc++: licenses/NDK-r24-NOTICE.txt, NDK-r24-NOTICE.toolchain.txt and libc++abi-*
+@unblockneteasemusic/server 0.28.0: LGPL-3.0-only; node_modules/@unblockneteasemusic/server/COPYING and COPYING.LESSER
+
+The Node package main matcher is used directly; Windows service helpers and CLI/proxy servers are not shipped. yt-dlp/youtube-dl sources require subprocess executables and are omitted from the active source list. No account Cookie is embedded or used by this matcher.
+
+Production JavaScript dependencies (individual license files are retained at the listed package paths):
+ansi-styles 3.2.1 | MIT | node_modules/ansi-styles/ | license
+args 5.0.3 | MIT | node_modules/args/ | LICENSE
+atomic-sleep 1.0.0 | MIT | node_modules/atomic-sleep/ | LICENSE
+camelcase 5.0.0 | MIT | node_modules/camelcase/ | license
+chalk 2.4.2 | MIT | node_modules/chalk/ | license
+color-convert 1.9.3 | MIT | node_modules/color-convert/ | LICENSE
+color-name 1.1.3 | MIT | node_modules/color-name/ | LICENSE
+colorette 2.0.20 | MIT | node_modules/colorette/ | LICENSE.md
+dateformat 4.6.3 | MIT | node_modules/dateformat/ | LICENSE
+duplexify 4.1.3 | MIT | node_modules/duplexify/ | LICENSE
+end-of-stream 1.4.5 | MIT | node_modules/end-of-stream/ | LICENSE
+escape-string-regexp 1.0.5 | MIT | node_modules/escape-string-regexp/ | license
+fast-redact 3.5.0 | MIT | node_modules/fast-redact/ | LICENSE
+fast-safe-stringify 2.1.1 | MIT | node_modules/fast-safe-stringify/ | LICENSE
+flatstr 1.0.12 | MIT | node_modules/flatstr/ | LICENSE
+has-flag 3.0.0 | MIT | node_modules/has-flag/ | license
+inherits 2.0.4 | ISC | node_modules/inherits/ | LICENSE
+joycon 3.1.1 | MIT | node_modules/joycon/ | LICENSE
+leven 2.1.0 | MIT | node_modules/leven/ | license
+mri 1.1.4 | MIT | node_modules/mri/ | license.md
+on-exit-leak-free 0.2.0 | MIT | node_modules/on-exit-leak-free/ | LICENSE
+once 1.4.0 | ISC | node_modules/once/ | LICENSE
+pino 6.14.0 | MIT | node_modules/pino/ | LICENSE
+pino-abstract-transport 0.5.0 | MIT | node_modules/pino-abstract-transport/ | LICENSE
+pino-pretty 7.6.1 | MIT | node_modules/pino-pretty/ | LICENSE
+sonic-boom 2.8.0 | MIT | node_modules/pino-pretty/node_modules/sonic-boom/ | LICENSE
+pino-std-serializers 3.2.0 | MIT | node_modules/pino-std-serializers/ | LICENSE
+process-warning 1.0.0 | MIT | node_modules/process-warning/ | LICENSE
+pump 3.0.4 | MIT | node_modules/pump/ | LICENSE
+quick-format-unescaped 4.0.4 | MIT | node_modules/quick-format-unescaped/ | LICENSE
+readable-stream 3.6.2 | MIT | node_modules/readable-stream/ | LICENSE
+rfdc 1.4.1 | MIT | node_modules/rfdc/ | LICENSE
+safe-buffer 5.2.1 | MIT | node_modules/safe-buffer/ | LICENSE
+secure-json-parse 2.7.0 | BSD-3-Clause | node_modules/secure-json-parse/ | LICENSE.md
+sonic-boom 1.4.1 | MIT | node_modules/sonic-boom/ | LICENSE
+split2 4.2.0 | ISC | node_modules/split2/ | LICENSE
+stream-shift 1.0.3 | MIT | node_modules/stream-shift/ | LICENSE
+string_decoder 1.3.0 | MIT | node_modules/string_decoder/ | LICENSE
+strip-json-comments 3.1.1 | MIT | node_modules/strip-json-comments/ | license
+supports-color 5.5.0 | MIT | node_modules/supports-color/ | license
+util-deprecate 1.0.2 | MIT | node_modules/util-deprecate/ | LICENSE
+wrappy 1.0.2 | ISC | node_modules/wrappy/ | LICENSE
