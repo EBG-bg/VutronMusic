@@ -88,6 +88,8 @@ docs/superpowers
 .superpowers
 
 # Local migration research, personal test artifacts and credentials are never published.
+/AGENTS.md
+/CLAUDE.md
 /android/*
 !/android/shared/
 /_analysis/
