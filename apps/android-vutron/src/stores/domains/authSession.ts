@@ -13,12 +13,15 @@ interface AuthSessionOptions {
   beforeLogout(): Promise<void>
   clearOnlineState(): void
   startPlaybackPolling(): void
+  onAutomaticOffline?(): void
 }
 
 /** Owns authentication and mode transitions; library/player state stays with its domain. */
 export function createAuthSession(options: AuthSessionOptions) {
   const profile = ref<VutronProfile>()
   const localOnly = localOnlyMode
+  const manualLocalOnly = ref(localOnly.value)
+  const networkConnected = ref(true)
   const loginRequested = ref(false)
   const localModeLoading = ref(false)
   const loggedIn = computed(() => Boolean(profile.value))
@@ -30,42 +33,95 @@ export function createAuthSession(options: AuthSessionOptions) {
   const qrLoginStatus = ref('')
   const qrLoginLoading = ref(false)
   let loginGeneration = 0
+  let networkRequest = 0, restored = false
+  let networkListener: { remove(): Promise<void> } | undefined
+  let monitoring = false
+  let monitorGeneration = 0
+  function applyMode(persist = false) {
+    setLocalOnlyPreference(manualLocalOnly.value || !networkConnected.value || !profile.value, persist, manualLocalOnly.value)
+  }
+  function connected(value?: boolean) { return value ?? (typeof navigator === 'undefined' || navigator.onLine !== false) }
+  async function initializeNetworkMonitoring() {
+    if (monitoring) return
+    monitoring = true
+    const token = ++monitorGeneration
+    if (typeof window !== 'undefined' && window.addEventListener) {
+      window.addEventListener('online', onNetworkEvent); window.addEventListener('offline', onNetworkEvent)
+    }
+    if (vutronPlugin.addListener) {
+      try { const listener = await vutronPlugin.addListener('musicNetworkChanged', onNetworkEvent); if (monitoring && token === monitorGeneration) networkListener = listener; else await listener.remove() }
+      catch { /* Visibility and browser connectivity events can still refresh the native snapshot. */ }
+    }
+  }
+  function onNetworkEvent() { if (restored) return refreshConnectivity() }
+  function disposeNetworkMonitoring() {
+    monitoring = false; restored = false; networkRequest++; monitorGeneration++
+    if (typeof window !== 'undefined' && window.removeEventListener) {
+      window.removeEventListener('online', onNetworkEvent); window.removeEventListener('offline', onNetworkEvent)
+    }
+    void networkListener?.remove(); networkListener = undefined
+  }
+  async function refreshConnectivity() {
+    const request = ++networkRequest, generation = loginGeneration
+    try {
+      const mode = await vutronPlugin.getLocalOnly()
+      if (request !== networkRequest || generation !== loginGeneration) return
+      networkConnected.value = connected(mode.connected)
+      if (!manualLocalOnly.value && networkConnected.value && !profile.value) {
+        const session = await vutronPlugin.getSession()
+        if (request !== networkRequest || generation !== loginGeneration) return
+        if (session.loggedIn && session.profile) profile.value = session.profile
+      }
+      const wasOffline = localOnly.value
+      applyMode()
+      if (restored && wasOffline !== localOnly.value) {
+        if (localOnly.value) (options.onAutomaticOffline || options.resetToLocalLibrary)()
+        else await options.loadOnlineState()
+      }
+    } catch (cause) {
+      if (request === networkRequest && generation === loginGeneration) options.error.value = options.formatError(cause, '读取网络状态失败')
+    }
+  }
 
   // Native explicit login can finish after the user has returned to local mode.
   async function reconcileCancelledLogin() {
     if (localOnly.value) {
-      try { await vutronPlugin.setLocalOnly({ enabled: true }) }
+      try { await vutronPlugin.setLocalOnly({ enabled: true, manual: manualLocalOnly.value }) }
       catch (cause) { options.error.value = options.formatError(cause, '恢复本地模式失败') }
     }
   }
 
   async function restore() {
     const generation = ++loginGeneration
+    restored = false; networkRequest++
+    await initializeNetworkMonitoring()
     try {
       const mode = await vutronPlugin.getLocalOnly()
       if (generation !== loginGeneration) return
-      if (mode.enabled) setLocalOnlyPreference(true)
-      if (!localOnly.value) {
-        const session = await vutronPlugin.getSession()
-        if (generation !== loginGeneration) return
-        profile.value = session.loggedIn ? session.profile : undefined
-      }
-      const enabled = localOnly.value || !profile.value
-      await vutronPlugin.setLocalOnly({ enabled })
+      manualLocalOnly.value = mode.manual ?? (mode.enabled || manualLocalOnly.value)
+      networkConnected.value = connected(mode.connected)
+      const session = await vutronPlugin.getSession()
       if (generation !== loginGeneration) return
-      setLocalOnlyPreference(enabled)
-      if (enabled) options.resetToLocalLibrary()
+      if (session.loggedIn && session.profile) profile.value = session.profile
+      else if (!session.restorePending) profile.value = undefined
+      applyMode(true)
+      await vutronPlugin.setLocalOnly({ enabled: localOnly.value, manual: manualLocalOnly.value })
+      if (generation !== loginGeneration) return
+      if (localOnly.value) options.resetToLocalLibrary()
     } catch (cause) {
       if (generation !== loginGeneration) return
-      setLocalOnlyPreference(true)
+      setLocalOnlyPreference(true, false)
       options.resetToLocalLibrary()
       options.error.value = options.formatError(cause, '无法连接 Android 原生适配器')
-      try { await vutronPlugin.setLocalOnly({ enabled: true }) }
+      try { await vutronPlugin.setLocalOnly({ enabled: true, manual: manualLocalOnly.value }) }
       catch { /* Keep the original bridge/session failure visible. */ }
     }
     if (generation !== loginGeneration) return
     await options.restoreLocalState()
-    if (generation === loginGeneration && onlineAvailable.value) await options.loadOnlineState()
+    if (generation === loginGeneration) {
+      restored = true
+      if (onlineAvailable.value) await options.loadOnlineState()
+    }
   }
 
   async function clearQrSession() {
@@ -88,21 +144,38 @@ export function createAuthSession(options: AuthSessionOptions) {
     if (localModeLoading.value) return
     localModeLoading.value = true
     const generation = ++loginGeneration
+    networkRequest++
     try {
-      await vutronPlugin.setLocalOnly({ enabled: true })
+      await vutronPlugin.setLocalOnly({ enabled: true, manual: true })
       if (generation !== loginGeneration) return
+      manualLocalOnly.value = true
       setLocalOnlyPreference(true)
       loginRequested.value = false
       options.loading.value = false
       await clearQrSession()
       if (generation !== loginGeneration) return
       options.error.value = ''
-      options.resetToLocalLibrary()
+      const reset = options.onAutomaticOffline || options.resetToLocalLibrary; reset()
       await options.restoreLocalState()
       options.startPlaybackPolling()
     } catch (cause) {
       if (generation === loginGeneration) options.error.value = options.formatError(cause, '无法进入仅本地模式')
     } finally { localModeLoading.value = false }
+  }
+
+  async function useAutomaticMode() {
+    if (localModeLoading.value) return
+    localModeLoading.value = true
+    const generation = ++loginGeneration
+    networkRequest++
+    try {
+      await vutronPlugin.setLocalOnly({ enabled: !networkConnected.value || !profile.value, manual: false })
+      if (generation !== loginGeneration) return
+      manualLocalOnly.value = false
+      setLocalOnlyPreference(localOnly.value, true, false)
+      await refreshConnectivity()
+    } catch (cause) { if (generation === loginGeneration) options.error.value = options.formatError(cause, '恢复自动联网失败') }
+    finally { localModeLoading.value = false }
   }
 
   function requestLogin() {
@@ -112,16 +185,20 @@ export function createAuthSession(options: AuthSessionOptions) {
 
   async function completeLogin(account: VutronProfile, generation: number) {
     if (generation !== loginGeneration) { await reconcileCancelledLogin(); return }
-    await vutronPlugin.setLocalOnly({ enabled: false })
+    const mode = await vutronPlugin.setLocalOnly({ enabled: !networkConnected.value, manual: false })
     if (generation !== loginGeneration) { await reconcileCancelledLogin(); return }
-    setLocalOnlyPreference(false)
+    networkConnected.value = connected(mode.connected)
+    networkRequest++; manualLocalOnly.value = false
     loginRequested.value = false
     profile.value = account
-    options.resetToOnlineHome()
+    applyMode(true)
+    if (localOnly.value) options.resetToLocalLibrary()
+    else options.resetToOnlineHome()
     qrLoginKey.value = ''
     qrLoginImage.value = ''
     qrLoginStatus.value = '登录成功，正在载入音乐库…'
-    await Promise.all([options.restoreLocalState(), options.loadOnlineState()])
+    restored = true
+    await Promise.all([options.restoreLocalState(), ...(onlineAvailable.value ? [options.loadOnlineState()] : [])])
     if (generation === loginGeneration) options.startPlaybackPolling()
   }
 
@@ -197,12 +274,13 @@ export function createAuthSession(options: AuthSessionOptions) {
     catch (cause) { options.error.value = options.formatError(cause, '退出登录失败'); return }
     profile.value = undefined
     options.clearOnlineState()
+    options.resetToLocalLibrary()
     await enterLocalOnly()
   }
 
   return {
-    profile, localOnly, loginRequested, localModeLoading, loggedIn, hasAccess, loginVisible, onlineAvailable,
+    profile, localOnly, manualLocalOnly, networkConnected, loginRequested, localModeLoading, loggedIn, hasAccess, loginVisible, onlineAvailable,
     qrLoginKey, qrLoginImage, qrLoginStatus, qrLoginLoading,
-    restore, enterLocalOnly, requestLogin, login, createQrLogin, checkQrLogin, cancelQrLogin, logout
+    restore, enterLocalOnly, useAutomaticMode, refreshConnectivity, disposeNetworkMonitoring, requestLogin, login, createQrLogin, checkQrLogin, cancelQrLogin, logout
   }
 }

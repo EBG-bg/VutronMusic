@@ -215,42 +215,25 @@ final class LocalFolderStore {
     }
 
     /** Scan every authorized folder, rather than replacing the previously selected one. */
-    static List<JSONObject> scanPersisted(Context context) {
-        List<JSONObject> result = new ArrayList<>();
+    static FolderScanResult scanSelection(Context context, String selectedId) throws IOException {
         JSONArray trees = loadTreeUris(context);
-        for (int index = 0; index < trees.length() && !LibraryTaskRunner.isCancelled(); index++) {
+        FolderScanResult result=new FolderScanResult();
+        boolean found=selectedId==null || selectedId.isEmpty();
+        for (int index = 0; index < trees.length(); index++) {
             String uri = trees.optString(index);
-            result.addAll(scanRegistered(context, uri));
+            String id=folderId(uri);
+            if(selectedId!=null && !selectedId.isEmpty() && !selectedId.equals(id)) continue;
+            found=true; LibraryTaskRunner.checkCancelled();
+            try { result.completed.put(id,scanRegistered(context,uri)); }
+            catch(IOException failure) { result.failed(id,failure.getMessage()==null?"目录读取失败":failure.getMessage()); }
         }
+        if(!found) throw new IOException("请先授权该本地文件夹");
+        LibraryTaskRunner.checkCancelled();
+        LocalTrackStore.saveScan(context,result);
         return result;
     }
 
-    static List<JSONObject> scanSelection(Context context, String selectedId) throws IOException {
-        if (selectedId == null || selectedId.isEmpty()) {
-            List<JSONObject> all = scanPersisted(context);
-            LibraryTaskRunner.checkCancelled(); LocalTrackStore.saveFolderIndex(context, new JSONArray(all));
-            return all;
-        }
-        JSONArray trees = loadTreeUris(context);
-        String selectedUri = null;
-        for (int index = 0; index < trees.length(); index++) {
-            String uri = trees.optString(index);
-            if (selectedId.equals(folderId(uri))) { selectedUri = uri; break; }
-        }
-        if (selectedUri == null) throw new IOException("请先授权该本地文件夹");
-        List<JSONObject> tracks = scanRegistered(context, selectedUri);
-        JSONArray merged = new JSONArray();
-        JSONArray previous = LocalTrackStore.loadFolderIndex(context);
-        for (int index = 0; index < previous.length(); index++) {
-            JSONObject row = previous.optJSONObject(index);
-            if (row != null && !selectedId.equals(row.optString("localFolderId"))) merged.put(row);
-        }
-        for (JSONObject row : tracks) merged.put(row);
-        LibraryTaskRunner.checkCancelled(); LocalTrackStore.saveFolderIndex(context, merged);
-        return tracks;
-    }
-
-    private static List<JSONObject> scanRegistered(Context context, String uri) {
+    private static List<JSONObject> scanRegistered(Context context, String uri) throws IOException {
         List<JSONObject> rows = scanFolder(context, Uri.parse(uri));
         for (JSONObject row : rows) {
             try { row.put("localFolderId", folderId(uri)); } catch (Exception ignored) { }
@@ -263,18 +246,18 @@ final class LocalFolderStore {
      * reading embedded tags can block while a document provider opens a file.
      * Each row can be sent directly to PlaybackService.
      */
-    static List<JSONObject> scanFolder(Context context, Uri treeUri) {
+    static List<JSONObject> scanFolder(Context context, Uri treeUri) throws IOException {
         if (context == null || treeUri == null || !"content".equalsIgnoreCase(treeUri.getScheme())) {
-            return new ArrayList<>();
+            throw new IOException("授权目录无效，请重新授权");
         }
         final ContentResolver resolver = context.getContentResolver();
         final String rootDocumentId;
         try {
             rootDocumentId = DocumentsContract.getTreeDocumentId(treeUri);
         } catch (RuntimeException ignored) {
-            return new ArrayList<>();
+            throw new IOException("无法读取授权目录",ignored);
         }
-        if (rootDocumentId == null || rootDocumentId.isEmpty()) return new ArrayList<>();
+        if (rootDocumentId == null || rootDocumentId.isEmpty()) throw new IOException("授权目录缺少标识");
 
         List<JSONObject> result = new ArrayList<>();
         JSONObject cache = loadMetadataCache(context, treeUri);
@@ -292,16 +275,18 @@ final class LocalFolderStore {
             Uri childrenUri;
             try {
                 childrenUri = DocumentsContract.buildChildDocumentsUriUsingTree(treeUri, node.documentId);
-            } catch (RuntimeException ignored) {
-                continue;
+            } catch (RuntimeException failure) {
+                throw new IOException("无法读取子目录，旧索引已保留",failure);
             }
+            List<Child> audioFiles = new ArrayList<>(), cueFiles = new ArrayList<>();
             try (Cursor cursor = queryChildren(resolver, childrenUri)) {
-                if (cursor == null) continue;
+                if (cursor == null) throw new IOException("目录提供者暂不可用，旧索引已保留");
                 int idColumn = cursor.getColumnIndex(DocumentsContract.Document.COLUMN_DOCUMENT_ID);
                 int nameColumn = cursor.getColumnIndex(DocumentsContract.Document.COLUMN_DISPLAY_NAME);
                 int mimeColumn = cursor.getColumnIndex(DocumentsContract.Document.COLUMN_MIME_TYPE);
                 int sizeColumn = cursor.getColumnIndex(DocumentsContract.Document.COLUMN_SIZE);
                 int modifiedColumn = cursor.getColumnIndex(DocumentsContract.Document.COLUMN_LAST_MODIFIED);
+                if(idColumn<0 || nameColumn<0 || mimeColumn<0) throw new IOException("目录提供者返回了不完整的文件信息");
                 while (!LibraryTaskRunner.isCancelled() && cursor.moveToNext()
                         && result.size() < MAX_FILES && entriesSeen < MAX_ENTRIES) {
                     entriesSeen++;
@@ -314,29 +299,63 @@ final class LocalFolderStore {
                     if (DocumentsContract.Document.MIME_TYPE_DIR.equals(mime)) {
                         if (node.depth < MAX_DEPTH) {
                             queue.addLast(new Node(documentId, node.depth + 1));
-                        }
+                        } else throw new IOException("目录层级超过扫描上限，旧索引已保留");
                         continue;
                     }
-                    if (!isAudio(name, mime)) continue;
+                    boolean cue = name != null && name.toLowerCase(Locale.ROOT).endsWith(".cue");
+                    if (!cue && !isAudio(name, mime)) continue;
                     Uri fileUri;
                     try {
                         fileUri = DocumentsContract.buildDocumentUriUsingTree(treeUri, documentId);
                     } catch (RuntimeException ignored) {
-                        continue;
+                        throw new IOException("音频条目读取失败，旧索引已保留",ignored);
                     }
                     long size = optionalLong(cursor, sizeColumn);
                     long modified = optionalLong(cursor, modifiedColumn);
-                    JSONObject track = trackWithMetadata(context, fileUri, name, size, modified, cache);
-                    if (track != null) {
-                        result.add(track);
-                        if (result.size() % 25 == 0) LibraryTaskRunner.progress(result.size(), 0);
-                        rememberMetadata(updatedCache, fileUri, size, modified, track);
+                    (cue ? cueFiles : audioFiles).add(new Child(fileUri, name, size, modified));
+                }
+            } catch (Exception failure) {
+                LibraryTaskRunner.checkCancelled();
+                throw new IOException("目录或子目录读取失败，旧索引已保留",failure);
+            }
+            java.util.Map<String,Integer> audioNameCounts = CueDirectoryIndex.countAudioNames(audioFiles,file -> file.name);
+            CueDirectoryIndex cues = new CueDirectoryIndex(audioNameCounts);
+            try {
+                for (Child cue : cueFiles) {
+                    if (LibraryTaskRunner.isCancelled()) break;
+                    try {
+                        cues.add(cue.uri.toString(),cue.name,cueText(context,cue.uri));
+                    } catch (Exception invalid) {
+                        cues.unreadable(cue.name,"","CUE 未分轨："+invalid.getMessage());
                     }
                 }
-            } catch (Exception ignored) {
-                // Providers can expose a stale or unreadable child. Keep scanning siblings.
-            }
+                for (Child file : audioFiles) {
+                    if (LibraryTaskRunner.isCancelled() || result.size() >= MAX_FILES) break;
+                    JSONObject track = trackWithMetadata(context, file.uri, file.name, file.size, file.modified, cache);
+                    if (track == null) continue;
+                    track.remove("cueWarning"); // Old metadata caches may contain a previous scan's annotation.
+                    // Cache only source-file tags. CUE is re-parsed independently, so changed sidecars never reuse old segments.
+                    rememberMetadata(updatedCache, file.uri, file.size, file.modified, track);
+                    try {
+                        CueParser.Sheet sheet = cues.parseForAudio(file.name,track.optLong("duration"));
+                        if (sheet != null) {
+                            if (result.size() + sheet.tracks.size() > MAX_FILES || entriesSeen + sheet.tracks.size() > MAX_ENTRIES)
+                                throw new IllegalArgumentException("分轨数量超出扫描上限，已保留整轨");
+                            List<JSONObject> segments = cueTracks(track, cues.cueUri(file.name), sheet);
+                            entriesSeen += segments.size(); result.addAll(segments);
+                            LibraryTaskRunner.progress(result.size(), 0); continue;
+                        }
+                        String warning = cues.warning(file.name);
+                        if (!warning.isEmpty()) track.put("cueWarning",warning);
+                    } catch (Exception invalid) { try { track.put("cueWarning", "CUE 未分轨：" + invalid.getMessage()); } catch (Exception ignored) { } }
+                    result.add(track);
+                    if (result.size() % 25 == 0) LibraryTaskRunner.progress(result.size(), 0);
+                }
+            } finally { cues.clear(); }
         }
+        LibraryTaskRunner.checkCancelled();
+        if(!queue.isEmpty() || entriesSeen>=MAX_ENTRIES || result.size()>=MAX_FILES)
+            throw new IOException("扫描达到目录或曲目上限，旧索引已保留");
         // An interrupted scan must not replace a complete cache with a partial one.
         if (!LibraryTaskRunner.isCancelled() && !result.isEmpty()) {
             saveMetadataCache(context, treeUri, updatedCache);
@@ -358,6 +377,45 @@ final class LocalFolderStore {
             Log.w(TAG, "Document provider rejected size/time columns; using file names and cached tags");
             return resolver.query(children, CHILD_COLUMNS, null, null, null);
         }
+    }
+
+    private static String cueText(Context context, Uri uri) throws IOException {
+        try (java.io.InputStream input = context.getContentResolver().openInputStream(uri);
+                ByteArrayOutputStream output = new ByteArrayOutputStream()) {
+            if (input == null) throw new IOException("无法读取 CUE");
+            byte[] buffer = new byte[4096]; int count;
+            while ((count = input.read(buffer)) != -1) {
+                LibraryTaskRunner.checkCancelled();
+                if (output.size() + count > CueParser.MAX_BYTES) throw new IOException("CUE 大小超限");
+                output.write(buffer, 0, count);
+            }
+            return LocalLyricSource.decode(output.toByteArray());
+        }
+    }
+
+    static List<JSONObject> cueTracks(JSONObject source, String cueUri, CueParser.Sheet sheet) throws org.json.JSONException {
+        List<JSONObject> result = new ArrayList<>();
+        for (CueParser.Track entry : sheet.tracks) {
+            JSONObject row = new JSONObject(source.toString()).put("cueUri", cueUri).put("cueTrackNo", entry.number)
+                    .put("cueOffsetMs", entry.startMs).put("cueDurationMs", entry.durationMs)
+                    .put("cueTitle", entry.title).put("cuePerformer", entry.performer).put("cueAlbum", sheet.title)
+                    .put("name", entry.title).put("localHasTitle", true).put("duration", entry.durationMs).put("dt", entry.durationMs);
+            if (!entry.performer.isEmpty()) row.put("artist", entry.performer).put("ar", new JSONArray().put(new JSONObject().put("name", entry.performer)));
+            if (!sheet.title.isEmpty()) row.put("al", new JSONObject().put("name", sheet.title));
+            row.put("id", cueId(row.optString("localUri") + PlaybackSegment.suffix(row)));
+            result.add(row);
+        }
+        return result;
+    }
+
+    private static long cueId(String value) {
+        // 52 bits are safe in JavaScript; retain legacy IDs for non-CUE recordings.
+        return (java.util.UUID.nameUUIDFromBytes(value.getBytes(java.nio.charset.StandardCharsets.UTF_8)).getMostSignificantBits() & 0xfffffffffffffL) + 1;
+    }
+
+    private static final class Child {
+        final Uri uri; final String name; final long size, modified;
+        Child(Uri uri, String name, long size, long modified) { this.uri=uri; this.name=name; this.size=size; this.modified=modified; }
     }
 
     private static long optionalLong(Cursor cursor, int column) {
@@ -464,7 +522,7 @@ final class LocalFolderStore {
             JSONObject track) {
         try {
             cache.put(uri.toString(), new JSONObject().put("size", size)
-                    .put("modified", modified).put("track", track));
+                    .put("modified", modified).put("track", new JSONObject(track.toString())));
         } catch (Exception encodingFailure) {
             Log.w(TAG, "Unable to cache one audio metadata record", encodingFailure);
         }

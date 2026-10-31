@@ -38,14 +38,30 @@ final class LocalPlaybackResolver {
         for (JSONObject local : candidates) {
             if (readable(context, local.optString("localUri", ""))) readable.add(local);
         }
-        return LocalTrackMatcher.match(normalized, readable);
+        return matchCandidates(normalized, readable);
     }
 
     /** Pure metadata entrypoint for identity and ambiguity regression checks. */
     static JSONObject match(JSONObject online, List<JSONObject> indexed) throws JSONException {
         if (online == null) return null;
         JSONObject normalized = normalizeTrack(online);
-        return LocalTrackMatcher.match(normalized, candidates(normalized, indexed));
+        return matchCandidates(normalized, candidates(normalized, indexed));
+    }
+
+    private static JSONObject matchCandidates(JSONObject online, List<JSONObject> candidates) throws JSONException {
+        JSONObject matched = LocalTrackMatcher.match(online,candidates);
+        if (matched == null) return null;
+        JSONObject selected = null;
+        for (JSONObject row : candidates) if (row.optString("localUri").equals(matched.optString("localUri"))) {
+            if (selected != null && !PlaybackSegment.suffix(selected).equals(PlaybackSegment.suffix(row))) return null;
+            selected = row;
+        }
+        if (selected != null && selected.optInt("cueTrackNo") > 0) {
+            for (String key : new String[]{"cueUri","cueTrackNo","cueOffsetMs","cueDurationMs","cueTitle","cuePerformer","cueAlbum"})
+                if (selected.has(key)) matched.put(key,selected.opt(key));
+            matched.put("duration",selected.optLong("cueDurationMs")).put("dt",selected.optLong("cueDurationMs"));
+        }
+        return matched;
     }
 
     private static void append(List<JSONObject> target, JSONArray values) {
@@ -70,7 +86,7 @@ final class LocalPlaybackResolver {
             if (value == null) continue;
             JSONObject local = normalizeTrack(value);
             String uri = local.optString("localUri", "").trim();
-            if (uri.isEmpty() || !seenUris.add(uri)) continue;
+            if (uri.isEmpty() || !seenUris.add(uri + PlaybackSegment.suffix(local))) continue;
             long boundId = local.optLong("neteaseId", 0);
             if (boundId > 0) {
                 if (onlineId > 0 && boundId == onlineId) result.add(local);

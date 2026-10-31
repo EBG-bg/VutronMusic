@@ -1,9 +1,9 @@
 import type { LyricLine, LyricWord } from '@vutronmusic/core/lyrics'
 
-export interface LyricPlaybackAnchor { position: number; monotonicTime: number; playing: boolean }
+export interface LyricPlaybackAnchor { position: number; monotonicTime: number; playing: boolean; rate?: number }
 
 export function interpolatedPosition(anchor: LyricPlaybackAnchor, now: number, duration = 0): number {
-  const elapsed = anchor.playing ? Math.max(0, now - anchor.monotonicTime) : 0
+  const elapsed = anchor.playing ? Math.max(0, now - anchor.monotonicTime) * (anchor.rate ?? 1) : 0
   const position = Math.max(0, anchor.position + elapsed)
   return duration > 0 ? Math.min(duration, position) : position
 }

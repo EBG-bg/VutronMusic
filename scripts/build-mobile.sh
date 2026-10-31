@@ -10,7 +10,7 @@ identity=$(node "$repository/scripts/mobile-build.cjs" "$edition")
 VUTRON_BUILD_EDITION=$(printf '%s' "$identity" | node -e "let input='';process.stdin.on('data',v=>input+=v);process.stdin.on('end',()=>process.stdout.write(JSON.parse(input).edition))")
 export VUTRON_BUILD_EDITION
 if [ ! -d node_modules ]; then npm ci --ignore-scripts; fi
-node node_modules/typescript/bin/tsc --noEmit
+node node_modules/vue-tsc/bin/vue-tsc.js --noEmit
 npm run build
 npm exec -- cap sync android
 cd android

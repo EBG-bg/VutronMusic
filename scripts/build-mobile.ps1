@@ -15,7 +15,7 @@ try {
         & npm.cmd ci --ignore-scripts
         if ($LASTEXITCODE -ne 0) { throw "Mobile dependency installation failed." }
     }
-    & node node_modules/typescript/bin/tsc --noEmit
+    & node node_modules/vue-tsc/bin/vue-tsc.js --noEmit
     if ($LASTEXITCODE -ne 0) { throw "Mobile TypeScript check failed." }
     $savedPreference = $ErrorActionPreference
     try {

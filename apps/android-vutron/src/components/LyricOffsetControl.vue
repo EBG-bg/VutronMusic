@@ -14,6 +14,7 @@ const value = ref(normalize(props.modelValue))
 const numeric = ref(String(value.value / 1000))
 const editing = ref(false)
 const slider = ref<HTMLElement>()
+const rail = ref<HTMLElement>()
 const center = ref(value.value)
 const lower = computed(() => Math.max(-limit, center.value - 1000))
 const upper = computed(() => Math.min(limit, center.value + 1000))
@@ -38,11 +39,12 @@ function releaseCapture() {
 }
 function beginDrag(event: PointerEvent) {
   if (props.disabled || drag || (event.pointerType === 'mouse' && event.button !== 0)) return
+  if (!(event.target as Element).closest('.offset-thumb')) return
   event.preventDefault()
   slider.value?.focus({ preventScroll: true })
-  const width = slider.value?.getBoundingClientRect().width ?? 0
+  const width = rail.value?.getBoundingClientRect().width ?? 0
   if (width <= 0) return
-  // Start at the saved value even when the finger lands away from the thumb.
+  // Keep the grab position within the thumb; the rest of the rail scrolls the page.
   drag = { pointer: event.pointerId, x: event.clientX, value: value.value, scale: (upper.value - lower.value) / width }
   slider.value?.setPointerCapture(event.pointerId)
 }
@@ -97,7 +99,7 @@ onBeforeUnmount(releaseCapture)
   <div class="lyric-offset-control" :class="{ disabled }">
     <div class="offset-heading"><span>当前歌曲歌词延迟</span><output>{{ signedSeconds(value) }} 秒</output></div>
     <div ref="slider" class="offset-slider" role="slider" :tabindex="disabled ? -1 : 0" aria-label="歌词延迟微调" :aria-disabled="disabled" :aria-valuemin="-limit" :aria-valuemax="limit" :aria-valuenow="value" :aria-valuetext="`${signedSeconds(value)} 秒，正数晚显示`" :style="{ '--offset-position': `${percent}%` }" @pointerdown="beginDrag" @pointermove="moveDrag" @pointerup="endDrag" @pointercancel="endDrag" @lostpointercapture="endDrag" @keydown="keyboard">
-      <span class="offset-rail"><span class="offset-fill"></span><span class="offset-thumb"></span></span>
+      <span ref="rail" class="offset-rail"><span class="offset-fill"></span><span class="offset-thumb"></span></span>
     </div>
     <div class="offset-scale"><span>{{ signedSeconds(lower) }} 秒</span><span>拖动微调 · 每格 10 毫秒</span><span>{{ signedSeconds(upper) }} 秒</span></div>
     <div class="offset-actions">
@@ -113,12 +115,14 @@ onBeforeUnmount(releaseCapture)
 .lyric-offset-control { display: grid; gap: 3px; min-width: 0; }
 .offset-heading { display: flex; justify-content: space-between; align-items: center; gap: 10px; font-size: 13px; }
 .offset-heading output { color: var(--color-primary, var(--accent)); font-variant-numeric: tabular-nums; white-space: nowrap; }
-.offset-slider { position: relative; height: 32px; margin: 0 9px; cursor: ew-resize; touch-action: none; user-select: none; outline: none; }
-.offset-rail { position: absolute; inset: 14px 0 auto; height: 4px; border-radius: 2px; background: var(--color-secondary-bg, var(--line)); }
+.offset-slider { position: relative; height: 32px; margin: 0; touch-action: pan-y; user-select: none; outline: none; }
+.offset-rail { position: absolute; inset: 14px 13px auto; height: 4px; border-radius: 2px; background: var(--color-secondary-bg, var(--line)); }
 .offset-fill { position: absolute; inset: 0 auto 0 0; width: var(--offset-position); border-radius: inherit; background: var(--color-primary, var(--accent)); }
-.offset-thumb { position: absolute; top: 50%; left: var(--offset-position); width: 17px; height: 17px; border: 2px solid var(--color-body-bg); border-radius: 50%; background: var(--color-primary, var(--accent)); box-shadow: 0 1px 4px rgb(0 0 0 / 18%); transform: translate(-50%, -50%); }
+.offset-thumb { position: absolute; top: 50%; left: var(--offset-position); width: 18px; height: 18px; border: 2px solid var(--color-body-bg); border-radius: 50%; background: var(--color-primary, var(--accent)); box-shadow: 0 1px 4px rgb(0 0 0 / 18%); transform: translate(-50%, -50%); touch-action: none; cursor: ew-resize; }
 .offset-slider:focus-visible .offset-thumb { outline: 2px solid var(--color-primary, var(--accent)); outline-offset: 3px; }
-.offset-scale { display: flex; justify-content: space-between; gap: 6px; margin-top: -5px; color: var(--muted); font-size: 10px; font-variant-numeric: tabular-nums; }
+.offset-scale { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 3px 6px; margin-top: -3px; color: var(--muted); font-size: 10px; font-variant-numeric: tabular-nums; }
+.offset-scale > span:nth-child(2) { grid-row: 2; grid-column: 1 / -1; text-align: center; }
+.offset-scale > span:last-child { text-align: right; }
 .offset-actions { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 9px; }
 .offset-actions button { display: inline-flex; align-items: center; justify-content: center; flex: 1 1 auto; gap: 5px; min-height: 34px; padding: 6px 8px; font-size: 12px; white-space: nowrap; }
 .offset-original-icon { width: 17px; height: 17px; flex: 0 0 auto; background: currentColor; mask: var(--offset-icon) center / contain no-repeat; -webkit-mask: var(--offset-icon) center / contain no-repeat; }
@@ -127,4 +131,5 @@ onBeforeUnmount(releaseCapture)
 .offset-exact > span:last-child { color: var(--muted); font-size: 11px; }
 .disabled { opacity: .5; }
 .disabled .offset-slider { cursor: default; }
+.disabled .offset-thumb { pointer-events: none; }
 </style>

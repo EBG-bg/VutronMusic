@@ -1,0 +1,9 @@
+<!doctype html><html lang="zh-CN"><head><meta name="viewport" content="width=device-width,initial-scale=1"></head><body><div id="app"></div><script type="module">
+import '/src/main.ts'
+import { useAndroidShellStore } from '/src/stores/androidShell'
+import { offlineTestBackend } from '/tests/fixtures/offline-native.mock.js'
+const store=useAndroidShellStore()
+window.offlineHarness={store,backend:offlineTestBackend}
+const restore=store.restore
+store.restore=async()=>{await restore();window.offlineReady=true}
+</script></body></html>

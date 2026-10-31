@@ -1,6 +1,6 @@
 # Vutron Music - Mobile: Third-party notices
 
-Release scope: **1.0.1**. Inventory reviewed **2026-10-26**. Maintained by **EBG-bg and contributors**.
+Release scope: **1.0.2**. Inventory reviewed **2026-10-31**. Maintained by **EBG-bg and contributors**.
 
 The original [LICENSE](LICENSE) is preserved verbatim. Individual third-party components retain their own licenses; the application is **not a statement that every bundled component is MIT**. Full retained texts are in [legal/licenses](legal/licenses) and [legal/THIRD_PARTY_LICENSES.txt](legal/THIRD_PARTY_LICENSES.txt). The machine-readable inventory is [legal/third-party-inventory.json](legal/third-party-inventory.json).
 

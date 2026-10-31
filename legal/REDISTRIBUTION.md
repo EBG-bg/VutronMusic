@@ -1,6 +1,8 @@
 # Redistribution and corresponding source
 
-Product: **Vutron Music - Mobile 1.0.1**. Maintainer: **EBG-bg and contributors**. Review date: **2026-10-26**.
+Product: **Vutron Music - Mobile 1.0.2**. Maintainer: **EBG-bg and contributors**. Review date: **2026-10-31**.
+
+This is the final release in EBG-bg/VutronMusic; its exact corresponding source remains under `mobile-v1.0.2`. Future Android maintenance moves to https://github.com/EBG-bg/VutronMusic-Android. Archiving the old repository does not remove its source, license materials or releases.
 
 ## Project and upstream notices
 

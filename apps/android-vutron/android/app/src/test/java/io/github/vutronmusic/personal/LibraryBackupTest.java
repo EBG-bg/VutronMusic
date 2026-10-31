@@ -4,6 +4,18 @@ import org.junit.Test;
 import static org.junit.Assert.*;
 
 public class LibraryBackupTest {
+    @Test public void cueFingerprintAndTuningStayPortable() throws Exception {
+        JSONObject one=song().put("cueTrackNo",1).put("cueOffsetMs",10000).put("cueDurationMs",1000).put("cueUri","content://private/cue");
+        JSONObject two=new JSONObject(one.toString()).put("cueTrackNo",2).put("cueOffsetMs",11000);
+        JSONObject portable=LibraryBackup.portableTrack(one);
+        assertFalse(portable.has("cueUri"));assertEquals(10000,portable.getLong("cueOffsetMs"));
+        assertEquals(LibraryBackup.fingerprint(one),LibraryBackup.fingerprint(portable));
+        assertNotEquals(LibraryBackup.fingerprint(one),LibraryBackup.fingerprint(two));
+        JSONObject safe=LibraryBackup.safePreferences(new JSONObject().put("playback_tuning",new JSONObject()
+                .put("speed",1.5).put("pitch",1.25).put("prefetchWifi",true).put("url","secret")));
+        assertEquals(1.5,safe.getJSONObject("playback_tuning").getDouble("speed"),.001);
+        assertTrue(safe.getJSONObject("playback_tuning").getBoolean("prefetchWifi"));assertFalse(safe.toString().contains("secret"));
+    }
     private JSONObject song() throws Exception { return new JSONObject().put("id", 1).put("name", "Song").put("artists", new JSONArray().put("Artist")).put("album", "Album").put("duration", 1000).put("localUri", "content://private/folder/audio").put("localFileName", "song.flac").put("cookie", "secret"); }
     @Test public void portableTracksExcludePathsCredentialsAndLocalNumericIdentity() throws Exception {
         JSONObject portable = LibraryBackup.portableTrack(song());

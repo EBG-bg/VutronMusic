@@ -12,9 +12,12 @@ import java.nio.file.StandardCopyOption;
 final class LibraryFiles {
     private LibraryFiles() { }
     static void writeJson(File file, JSONObject value) throws IOException {
+        writeBytes(file,value.toString().getBytes(StandardCharsets.UTF_8));
+    }
+    static void writeBytes(File file, byte[] bytes) throws IOException {
         File temporary = new File(file.getParentFile(), file.getName() + ".tmp");
         try {
-            try (FileOutputStream out = new FileOutputStream(temporary)) { out.write(value.toString().getBytes(StandardCharsets.UTF_8)); out.getFD().sync(); }
+            try (FileOutputStream out = new FileOutputStream(temporary)) { out.write(bytes); out.getFD().sync(); }
             try { Files.move(temporary.toPath(), file.toPath(), StandardCopyOption.ATOMIC_MOVE, StandardCopyOption.REPLACE_EXISTING); }
             catch (java.nio.file.AtomicMoveNotSupportedException unsupported) { Files.move(temporary.toPath(), file.toPath(), StandardCopyOption.REPLACE_EXISTING); }
         } finally { if (temporary.exists()) temporary.delete(); }

@@ -72,6 +72,10 @@ final class PlaybackQueue {
             }
             return move(1);
         }
+        JSONObject peekNext(int mode, boolean automatic, int randomChoice) throws Exception {
+            JSONObject selected = next(mode, automatic, randomChoice).current();
+            return selected == null ? null : safeCopy(selected);
+        }
         Snapshot remove(int selected, boolean inserted) throws Exception {
             JSONArray source = inserted ? upNext : songs;
             if (selected < 0 || selected >= source.length()) throw new IllegalArgumentException("播放队列索引无效");

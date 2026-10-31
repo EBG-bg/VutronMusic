@@ -1,6 +1,8 @@
 # Vutron Music - Mobile
 
-Vutron Music - Mobile 是 [VutronMusic](https://github.com/stark81/VutronMusic) 的**非官方** Android 移植版，支持在线歌单、本地音乐、离线缓存与桌面歌词。当前代码版本：**1.0.1**，主要适配 Android 13 / HyperOS 的 ARM64 设备。
+> **本仓库最后版本为 1.0.2，发布后归档。** 后续维护、Issue 和 PR 移至 [EBG-bg/VutronMusic-Android](https://github.com/EBG-bg/VutronMusic-Android)。历史源码和安装包保留；新仓库 1.1.0 尚未发布时，请使用本仓库 1.0.2。
+
+Vutron Music - Mobile 是 [VutronMusic](https://github.com/stark81/VutronMusic) 的**非官方** Android 移植版，支持在线歌单、本地音乐、离线缓存与桌面歌词。当前代码版本：**1.0.2**，主要适配 Android 13 / HyperOS 的 ARM64 设备。
 
 移动端由 EBG-bg 独立维护，与上游作者及音乐平台不存在官方隶属或背书关系。项目基于 Vue 3、TypeScript、Pinia 和 Capacitor，复用上游图标、主题和共享组件。原桌面项目介绍见 [README.upstream.md](README.upstream.md)，原许可证见 [LICENSE](LICENSE)。
 
@@ -20,13 +22,16 @@ Vutron Music - Mobile 是 [VutronMusic](https://github.com/stark81/VutronMusic) 
 | 离线缓存 | 缓存歌曲、歌单信息和封面，可配置缓存占用；单曲删除只移除缓存音频，保留歌单、封面与歌词。 |
 | 播放队列 | 查看队列、追加歌曲、将歌曲插入下一首播放。 |
 | 播放设置 | 保存歌曲与歌单音量、重启恢复播放进度、睡眠定时。 |
+| 高级播放 | 全局 0.5–2.0× 倍速、高级变调；默认关闭的 Wi-Fi 下一首地址预取，不预下载音频。 |
+| CUE 分轨 | 支持同目录、单个音频 FILE，按 INDEX 01 显示和播放虚拟曲目，不修改整轨原文件。 |
+| 歌曲评论 | 推荐／热门／最新、分页、点赞、发表、回复、删除自己的评论与独立楼层；按纯文本显示，不持久缓存。 |
 | 应用内歌词 | 原文与译文同步滚动、逐曲延迟微调；支持 YRC、增强 LRC／WRC 的真实词时间，以及默认关闭的估算逐字。 |
 | 桌面歌词 | 悬浮歌词、颜色自定义、透明度和阴影设置。 |
 | 歌单布局 | 支持列表与卡片布局，可调整每排卡片数量。 |
 | 本地排序 | 本地及导入歌单支持独立的自定义拖动顺序、恢复原顺序，并按该顺序播放。 |
 | 桌面歌单导出 | 配套 Windows 简易 GUI / CLI，可导出本地及已登录网易云账号的歌单。见 [工具说明](tools/README.md)。 |
 | JSON 备份 | 导出设置与本地歌单资料；音频、账号和目录授权不包含在内，恢复后重新关联原文件。 |
-| 检查更新 | 设置底部从 GitHub 检查、下载并安装新版；自动检查默认关闭。 |
+| 检查更新 | 设置底部仅检查新仓库 GitHub Releases，不再回读旧仓库；自动检查默认关闭。 |
 | 关于 | 从“检查更新”栏进入，查看版本、原项目信息，以及离线可读的隐私、使用说明和完整许可。 |
 
 估算逐字显示由程序根据歌词时间计算，不等同于来源提供的精确逐字时间。
@@ -37,11 +42,7 @@ Vutron Music - Mobile 是 [VutronMusic](https://github.com/stark81/VutronMusic) 
 
 各来源播放能力取决于该来源的可用性及用户拥有的权限。本项目不附带账号、Cookie、音乐文件或平台授权，也不承诺提供受限内容。
 
-| 计划功能 |
-| --- |
-| 倍速 |
-| CUE |
-| 预取 |
+所有数值滑条仅从滑块头部开始拖动，轨道空白可滚动页面；实时调节并保存，保留数字输入与键盘操作。
 
 ## 下载与安装
 
@@ -52,6 +53,10 @@ Vutron Music - Mobile 是 [VutronMusic](https://github.com/stark81/VutronMusic) 
 不登录时，点击“仅本地模式”即可播放已授权的本地文件和已有音频缓存；首页推荐、在线搜索与网易云歌单入口在此模式下隐藏。已有缓存歌单可在“离线”中查看，缺少音频缓存的歌曲不会联网补播。退出网易云账号会保留本地音乐与缓存。
 
 “设置 → 检查更新”提供手动检查与自动检查开关。自动检查默认关闭，开启后最多每 6 小时检查一次 GitHub；下载和系统安装均需确认，首次安装更新可能需要授予本应用“安装未知应用”权限。
+
+1.0.2 只读取 [新仓库 Releases](https://github.com/EBG-bg/VutronMusic-Android/releases)，仍要求 `mobile-v*` 标签和 `Vutron-Music-Mobile-版本-arm64.apk` 资产，不再查询或下载旧仓库的更新。新仓库尚无可验证的稳定包时会明确提示；网络失败会报错。1.0.1 用户先安装本仓库 1.0.2，即可在新仓库 1.1.0 发布后继续使用应用内更新。也可以手动安装以后发布的新仓库包。
+
+1.0.0、1.0.1 和 1.0.2 沿用相同包名与签名，可覆盖升级并保留应用数据。证书主题为 `C=US, O=Android, CN=Android Debug`，SHA-256：`d879659d80b689de9be73f419d3ccd01f4bee96f9725a08896b420037688d6d8`。本仓库分发的是关闭应用调试的 Release 构建；证书主题与构建类型是不同的信息。
 
 仅本地模式会暂停自动检查；主动点击“检查更新”仍会连接 GitHub。公开安装包只能由允许的发行通道下载安装，应用会同时核验包名、版本码和签名。
 
@@ -78,8 +83,8 @@ sh scripts/build-mobile.sh Debug
 ## 上游同步与发布
 
 - 仓库默认分支应为 `mobile`；桌面端页面不应成为访客默认看到的入口。
-- 移动端 release 只使用 `mobile-v*` tag，例如 `mobile-v1.0.1`；不要复用上游 `v*` tag。
-- 移动端只依赖 `Mobile Android` workflow；桌面的 `Release`、`app-test`、`documents` 只在上游 `master`/`v*` tag 触发，在 fork 中可禁用。
+- 本仓库最后一个移动端 tag 为 `mobile-v1.0.2`；后续正式版本只在新仓库发布，不复用上游桌面 `v*` tag。
+- 当前发布树只保留 `Mobile Android` workflow；桌面构建和文档工作流随无关的桌面运行代码一起移出。
 - 上游变更只 cherry-pick 或合并需要的提交，不把上游 `main` 整体合入 `mobile`；同步后重新跑移动端构建和真机检查。
 
 ## 项目结构
@@ -89,9 +94,10 @@ sh scripts/build-mobile.sh Debug
 - `packages/ui`：从上游抽取并被桌面/Android 实际共用的控件。
 - `android/shared`：网络与本机会话适配。
 - `vendor/android-runtime`：经过验证的音源、匹配与音质运行时。
+- `src/renderer/assets` 和 `src/renderer/locales`：安卓实际使用的原图标、主题及词库；其余桌面运行代码不在当前发布树中。
 
 ## 隐私、许可与使用
 
 请阅读 [隐私说明](legal/PRIVACY.md)、[使用说明](legal/USE_POLICY.md)、[第三方声明](THIRD_PARTY_NOTICES.md)、[再分发说明](legal/REDISTRIBUTION.md) 和 [NOTICE](NOTICE)。根 MIT 文本保留原作者版权；第三方库分别适用其许可证，尤其内置 LGPL 组件不应被表述为全部 MIT。
 
-问题与反馈请使用本 fork 的 Issues，提交日志前自行删除账号、Cookie 和本地文件路径等个人信息。
+问题与反馈请使用 [新仓库 Issues](https://github.com/EBG-bg/VutronMusic-Android/issues)，提交日志前删除账号、Cookie 和本地文件路径等个人信息。本仓库归档后不再接收 Issue 或 PR。

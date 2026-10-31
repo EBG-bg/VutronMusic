@@ -50,7 +50,7 @@ jobs:
         run: python -m unittest discover -s tools/tests -p test_export_desktop.py
       - name: Media gateway checks
         run: node --test vendor/android-runtime/tests/*.test.cjs
-      - name: Build Mobile
+      - name: Check Vue SFC types and build Mobile
         run: sh scripts/build-mobile.sh Debug
       - name: Mobile behavior checks
         working-directory: apps/android-vutron

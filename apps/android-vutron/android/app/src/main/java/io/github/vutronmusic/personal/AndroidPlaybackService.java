@@ -63,6 +63,7 @@ public final class AndroidPlaybackService extends Service {
     private static volatile AndroidPlaybackService activeInstance;
 
     private MediaPlayer player;
+    private MusicConnectivity connectivity;
     private MediaSession session;
     private AudioManager audio;
     private AudioFocusRequest focusRequest;
@@ -70,6 +71,13 @@ public final class AndroidPlaybackService extends Service {
     private String artist = "";
     private long trackId;
     private long duration;
+    private float actualSpeed = 1f, actualPitch = 1f;
+    private String tuningWarning = "";
+    private PlaybackSegment segment = PlaybackSegment.of(null, 0);
+    private boolean seeking;
+    private int pendingSeekRelative, appliedSeekRelative;
+    private int completedGeneration = -1;
+    private Runnable segmentWatchdog;
     private int generation;
     private boolean playing;
     private boolean desiredPlayback;
@@ -86,6 +94,15 @@ public final class AndroidPlaybackService extends Service {
     private int cacheEnqueuedGeneration = -1;
     private PlaybackQueue.Snapshot queue;
     private Future<?> urlTask;
+    private final NextTrackPrefetch nextPrefetch = new NextTrackPrefetch();
+    private final NextTrackPrefetch.QueueSignature prefetchQueueSignature = new NextTrackPrefetch.QueueSignature();
+    private final ExecutorService prefetchWorker = Executors.newSingleThreadExecutor(runnable -> {
+        Thread thread = new Thread(runnable,"VutronNextAddress"); thread.setPriority(Thread.MIN_PRIORITY); return thread;
+    });
+    private Future<?> prefetchTask;
+    private String prefetchAttempt = "";
+    private String prefetchSession = "";
+    private final PrefetchedSourceRetry prefetchedRetry = new PrefetchedSourceRetry();
     private Bitmap artwork;
     private String artworkUrl = "";
     private int artworkGeneration;
@@ -100,6 +117,7 @@ public final class AndroidPlaybackService extends Service {
             checkSleepTimer();
             AndroidLyricOverlayService.recoverIfEnabled(AndroidPlaybackService.this);
             if (playing || player != null) publish();
+            maybePrefetch();
             if (progressHandler != null) progressHandler.postDelayed(this, 1000L);
         }
     };
@@ -131,11 +149,12 @@ public final class AndroidPlaybackService extends Service {
 
     static void enforceLocalOnly() {
         AndroidPlaybackService service = activeInstance;
-        if (service == null || service.destroyed) return;
+        if (service == null || service.destroyed || service.progressHandler == null) return;
         HttpURLConnection connection = service.artworkConnection;
         if (connection != null) connection.disconnect();
+        int requestGeneration = service.generation;
         service.progressHandler.post(() -> {
-            if (service.destroyed || !LocalOnlyMode.enabled(service)) return;
+            if (service.destroyed || requestGeneration != service.generation || !LocalOnlyMode.enabled(service)) return;
             if (service.remotePlayback || service.urlLookupPending) service.stopPlayback(false);
         });
     }
@@ -147,6 +166,7 @@ public final class AndroidPlaybackService extends Service {
     static void setMode(Context context, int mode) {
         if (mode < 0 || mode > 2) throw new IllegalArgumentException("播放模式无效");
         context.getSharedPreferences(PLAYBACK_PREFS, MODE_PRIVATE).edit().putInt("mode", mode).apply();
+        invalidatePrefetchForPolicyChange();
     }
 
     interface QueueResult {
@@ -182,7 +202,7 @@ public final class AndroidPlaybackService extends Service {
                     updated = current.remove(index, upNext);
                 } else throw new IllegalArgumentException("队列操作无效");
                 PlaybackQueue.persist(context, updated);
-                if (active) service.queue = updated;
+                if (active) { service.queue = updated; service.invalidatePrefetch(); }
                 if (select) {
                     if (updated.count() == 0) {
                         if (active) service.stopPlayback(true);
@@ -230,7 +250,7 @@ public final class AndroidPlaybackService extends Service {
                 if (next == current) { result.success(current); return; }
                 PlaybackQueue.persist(context, next);
                 AndroidPlaybackService service = activeInstance;
-                if (service != null && !service.destroyed) { service.queue = next; service.publish(); }
+                if (service != null && !service.destroyed) { service.queue = next; service.invalidatePrefetch(); service.publish(); }
                 result.success(next);
             } catch (Exception error) { result.failure(error); }
         });
@@ -247,6 +267,7 @@ public final class AndroidPlaybackService extends Service {
                 PlaybackQueue.Snapshot snapshot = PlaybackQueue.load(context);
                 AndroidPlaybackService service = activeInstance;
                 boolean active = service != null && !service.destroyed;
+                if (active) service.invalidatePrefetch();
                 if (affectsCurrent) {
                     if (active) service.stopPlayback(true);
                     else {
@@ -277,6 +298,91 @@ public final class AndroidPlaybackService extends Service {
         service.progressHandler.post(() -> {
             if (!service.destroyed && activeInstance == service && service.applyEffectiveVolume()) service.publish();
         });
+    }
+
+    static void onPlaybackTuningChanged(Context context, Runnable completed) {
+        AndroidPlaybackService service = activeInstance;
+        if (service == null || service.destroyed) { completed.run(); return; }
+        service.progressHandler.post(() -> {
+            if (!service.destroyed) {
+                service.invalidatePrefetch();
+                service.persistPosition();
+                if (service.playing) service.applyTuning();
+                service.publish();
+            }
+            completed.run();
+        });
+    }
+
+    static void invalidatePrefetchForPolicyChange() {
+        AndroidPlaybackService service = activeInstance;
+        if (service != null && !service.destroyed && service.progressHandler != null) {
+            service.nextPrefetch.invalidate();
+            service.progressHandler.post(service::invalidatePrefetch);
+        }
+    }
+
+    private void invalidatePrefetch() {
+        prefetchQueueSignature.clear();
+        cancelPrefetchWork();
+    }
+
+    private void cancelPrefetchWork() {
+        nextPrefetch.invalidate();
+        if (prefetchTask != null) prefetchTask.cancel(true);
+        prefetchTask = null; prefetchAttempt = ""; prefetchSession = "";
+    }
+
+    private void maybePrefetch() {
+        int mode = getMode(this);
+        if (!playing || !remotePlayback || buffering || seeking || queue == null || !PlaybackTuning.prefetch(this)
+                || LocalOnlyMode.enabled(this) || !MusicConnectivity.wifi(this)
+                || !NextTrackPrefetch.deterministic(mode,queue.count(),queue.upNext.length(),queue.insertedPlaying)) return;
+        try {
+            int position = relativePosition();
+            if (position < 1500) return; // Current playback gets first access to bandwidth and the decoder.
+            if (duration > 0 && duration - position > 30000 * actualSpeed) return; // Resolve within the short URL TTL.
+            if (!prefetchQueueSignature.claim(queue.token,generation,mode,queue.count(),queue.upNext.length(),queue.index,queue.insertedPlaying)) return;
+            cancelPrefetchWork();
+            JSONObject selected = queue.peekNext(mode,true,0);
+            if (selected == null || !LocalLibraryIds.uri(selected).isEmpty() || selected.optBoolean("cached") || selected.optLong("id") == trackId) return;
+            String key = NextTrackPrefetch.key(selected), queueToken = queue.token;
+            String attempt = queueToken + ":" + generation + ":" + key;
+            prefetchAttempt = attempt;
+            int revision = nextPrefetch.revision();
+            String cookie = SessionStore.load(this);
+            prefetchSession = cookie;
+            prefetchTask = prefetchWorker.submit(() -> {
+                try {
+                    java.util.function.BooleanSupplier allowed = () -> revision == nextPrefetch.revision() && cookie.equals(SessionStore.load(this))
+                            && PlaybackTuning.prefetch(this) && !LocalOnlyMode.enabled(this) && MusicConnectivity.wifi(this);
+                    if (!allowed.getAsBoolean() || AudioCache.find(this,selected.optLong("id")) != null
+                            || LocalPlaybackResolver.match(this,selected) != null) return;
+                    JSONObject location = PlaybackSourceResolver.resolve(this,selected.optLong("id"),ignored -> {},allowed);
+                    if (allowed.getAsBoolean()) nextPrefetch.put(revision,key,queueToken,location,SystemClock.elapsedRealtime());
+                } catch (Exception ignored) { /* Opportunistic; normal playback still resolves and reports its own errors. */ }
+            });
+        } catch (Exception ignored) { /* No user-facing failure or automatic retry for a queue snapshot. */ }
+    }
+
+    private void applyTuning() {
+        if (player == null || !playerPrepared) return;
+        float speed = PlaybackTuning.speed(this), pitch = PlaybackTuning.pitch(this);
+        tuningWarning = "";
+        try {
+            player.setPlaybackParams(new android.media.PlaybackParams().allowDefaults().setSpeed(speed).setPitch(pitch));
+            actualSpeed = player.getPlaybackParams().getSpeed(); actualPitch = player.getPlaybackParams().getPitch();
+        } catch (IllegalArgumentException | IllegalStateException unsupported) {
+            try {
+                player.setPlaybackParams(new android.media.PlaybackParams().allowDefaults().setSpeed(speed).setPitch(1f));
+                actualSpeed = player.getPlaybackParams().getSpeed(); actualPitch = 1f;
+                tuningWarning = "当前设备或音频不支持该变调，已使用原调";
+            } catch (IllegalArgumentException | IllegalStateException unsupportedSpeed) {
+                try { player.setPlaybackParams(new android.media.PlaybackParams().allowDefaults().setSpeed(1f).setPitch(1f)); }
+                catch (IllegalArgumentException | IllegalStateException ignored) { }
+                actualSpeed = 1f; actualPitch = 1f; tuningWarning = "当前设备或音频不支持倍速，已回退 1.0×";
+            }
+        }
     }
 
     /** Starts or replaces a sleep timer. Durations from one second through 24 hours are accepted. */
@@ -329,6 +435,7 @@ public final class AndroidPlaybackService extends Service {
     }
 
     static void seek(Context context, int positionMs) {
+        invalidatePrefetchForPolicyChange();
         AndroidPlaybackService service = activeInstance;
         int target = Math.max(0, positionMs);
         if (service != null && !service.destroyed) {
@@ -336,9 +443,7 @@ public final class AndroidPlaybackService extends Service {
                 if (service.player != null && service.playerPrepared) {
                     try {
                         int bounded = service.duration > 0 ? Math.min(target, (int) service.duration) : target;
-                        service.player.seekTo(bounded);
-                        service.persistPosition();
-                        service.publish();
+                        service.requestSeek(bounded);
                     } catch (IllegalStateException ignored) { }
                 }
             });
@@ -352,6 +457,15 @@ public final class AndroidPlaybackService extends Service {
         super.onCreate();
         activeInstance = this;
         progressHandler = new Handler(Looper.getMainLooper());
+        try {
+            connectivity = new MusicConnectivity(this, () -> {
+                if (destroyed) return;
+                invalidatePrefetchForPolicyChange();
+                try { LocalOnlyMode.updateConnectivity(this, MusicConnectivity.available(this)); }
+                catch (Exception failure) { Log.w("VutronNetwork", "Background network policy update failed", failure); }
+            });
+            LocalOnlyMode.updateConnectivity(this, MusicConnectivity.available(this));
+        } catch (RuntimeException | java.io.IOException failure) { Log.w("VutronNetwork", "Background network observer unavailable", failure); }
         try { queue = PlaybackQueue.load(this); }
         catch (Exception failure) { Log.w("VutronPlayback", "Could not restore the playback queue", failure); }
         progressHandler.post(progressTicker);
@@ -436,6 +550,9 @@ public final class AndroidPlaybackService extends Service {
         persistPosition();
         android.content.SharedPreferences saved = getSharedPreferences(PLAYBACK_PREFS, MODE_PRIVATE);
         JSONObject selected = queue.current();
+        final JSONObject prefetched = !LocalOnlyMode.enabled(this) && PlaybackTuning.prefetch(this) && MusicConnectivity.wifi(this) && prefetchSession.equals(SessionStore.load(this))
+                ? nextPrefetch.take(NextTrackPrefetch.key(selected),queue.token,SystemClock.elapsedRealtime()) : null;
+        invalidatePrefetch();
         long id = selected.optLong("id");
         int position = restorePosition && saved.getLong(LAST_TRACK_ID, 0L) == id
                 ? saved.getInt(LAST_POSITION, 0) : 0;
@@ -460,7 +577,7 @@ public final class AndroidPlaybackService extends Service {
         publish();
         urlTask = urlWorker.submit(() -> {
             try {
-                Intent prepared = PlaybackRequest.prepare(this, selected, autoPlay).putExtra("resumePosition", position);
+                Intent prepared = PlaybackRequest.prepare(this, selected, autoPlay,prefetched).putExtra("resumePosition", position);
                 progressHandler.post(() -> {
                     if (destroyed || token != generation) return;
                     urlLookupPending = false;
@@ -511,6 +628,7 @@ public final class AndroidPlaybackService extends Service {
     }
 
     private void startTrack(Intent intent) {
+        invalidatePrefetch();
         String url = intent.getStringExtra("url");
         boolean remote = url != null && (url.startsWith("http://") || url.startsWith("https://"));
         if (remote && LocalOnlyMode.enabled(this)) {
@@ -560,26 +678,31 @@ public final class AndroidPlaybackService extends Service {
                     publishError("已切换为本地模式"); return;
                 }
                 playerPrepared = true;
-                duration = Math.max(0, prepared.getDuration());
-                if (resumePosition > 0 && duration > 0) {
-                    int seekPosition = Math.min(resumePosition, Math.max(0, (int) duration - 1000));
-                    if (seekPosition > 0) {
-                        try { prepared.seekTo(seekPosition); } catch (IllegalStateException ignored) { }
-                    }
+                try {
+                    segment = PlaybackSegment.of(trackMetadata, Math.max(0, prepared.getDuration()));
+                    duration = segment.length;
+                    if (segment.needsInitialSeek(resumePosition)) requestSeek(resumePosition);
+                    else finishPreparedPlayback(token);
+                } catch (RuntimeException invalid) {
+                    if (!retryPrefetchedSource(intent,token))
+                        publishError(invalid.getMessage() == null ? "分轨准备失败" : invalid.getMessage());
                 }
-                if (!requestFocus()) { publishError("系统暂不允许音频播放"); return; }
-                if (!applyEffectiveVolume()) return;
-                if (!desiredPlayback) { playing = false; persistPosition(); publish(); return; }
-                prepared.start(); playing = true; enqueueStartedAudio(token); publish();
+            });
+            candidate.setOnSeekCompleteListener(seeked -> {
+                if (destroyed || player != seeked || token != generation || !seeking) return;
+                try {
+                    if (pendingSeekRelative != appliedSeekRelative) {
+                        appliedSeekRelative = pendingSeekRelative;
+                        seeked.seekTo(segment.absolute(appliedSeekRelative));
+                        return;
+                    }
+                    seeking = false;
+                    finishPreparedPlayback(token);
+                } catch (IllegalArgumentException | IllegalStateException invalid) { seeking = false; publishError("定位播放进度失败"); }
             });
             candidate.setOnCompletionListener(completed -> {
                 if (!destroyed && player == completed && token == generation) {
-                    playing = false;
-                    clearResumePosition();
-                    if (desiredPlayback && queue != null && queue.count() > 0) {
-                        advanceQueue(true);
-                    }
-                    else { desiredPlayback = false; publish(); }
+                    completeTrack(token);
                 }
             });
             candidate.setOnInfoListener((reporting, what, extra) -> {
@@ -592,7 +715,8 @@ public final class AndroidPlaybackService extends Service {
                 return false;
             });
             candidate.setOnErrorListener((failed, what, extra) -> {
-                if (player == failed) publishError("音频解码或网络播放失败");
+                if (player != failed || token != generation || destroyed) return true;
+                if (!retryPrefetchedSource(intent, token)) publishError("音频解码或网络播放失败");
                 return true;
             });
             if (url.startsWith("content://") || url.startsWith("file://")) {
@@ -606,9 +730,114 @@ public final class AndroidPlaybackService extends Service {
             publish();
             candidate.prepareAsync();
         } catch (Exception error) {
-            Log.w("VutronPlayback", "Could not prepare the selected media", error);
-            publishError("歌曲准备失败");
+            Log.w("VutronPlayback", "Could not prepare the selected media: " + error.getClass().getSimpleName());
+            if (!retryPrefetchedSource(intent, token)) publishError("歌曲准备失败");
         }
+    }
+
+    private boolean retryPrefetchedSource(Intent failedRequest, int failedToken) {
+        if (destroyed || !prefetchedRetry.claim(generation,failedToken,
+                failedRequest.getBooleanExtra("usedPrefetchedSource",false), !LocalOnlyMode.enabled(this))) return false;
+        // Keep the selection and progress. Only this one resolved source is discarded.
+        final JSONObject selected;
+        try { selected = new JSONObject(trackMetadata.toString()); }
+        catch (Exception invalidTrack) { return false; }
+        android.content.SharedPreferences saved = getSharedPreferences(PLAYBACK_PREFS,MODE_PRIVATE);
+        int remembered = saved.getInt(LAST_POSITION,0);
+        if (playerPrepared) try { remembered = relativePosition(); } catch (IllegalStateException expiredPlayer) { }
+        final int resumePosition = remembered;
+        final boolean autoPlay = desiredPlayback;
+        final String cookie = SessionStore.load(this);
+        cancelUrlTask(); invalidatePrefetch(); releasePlayer();
+        final int retryToken = ++generation;
+        playing = false; urlLookupPending = true;
+        saved.edit().putInt(LAST_POSITION,resumePosition).putInt("position",resumePosition).remove("error").apply();
+        publish();
+        urlTask = urlWorker.submit(() -> {
+            try {
+                LocalOnlyMode.requireOnline(this);
+                if (!cookie.equals(SessionStore.load(this))) throw new java.io.IOException("登录状态已变化，请重新播放");
+                Intent fresh = PlaybackRequest.prepare(this,selected,autoPlay).putExtra("resumePosition",resumePosition);
+                if (!cookie.equals(SessionStore.load(this))) throw new java.io.IOException("登录状态已变化，请重新播放");
+                progressHandler.post(() -> {
+                    if (destroyed || generation != retryToken) return;
+                    urlLookupPending = false; urlTask = null;
+                    if (!cookie.equals(SessionStore.load(this))) { publishError("登录状态已变化，请重新播放"); return; }
+                    startTrack(fresh); // prepare() did not receive a prefetched result; this attempt cannot recurse.
+                });
+            } catch (Exception failure) {
+                Log.w("VutronPlayback","Fresh source resolution failed: " + failure.getClass().getSimpleName());
+                progressHandler.post(() -> {
+                    if (destroyed || generation != retryToken) return;
+                    urlLookupPending = false; urlTask = null;
+                    publishError("预取音源失效，重新解析播放地址仍失败，请重新播放");
+                });
+            }
+        });
+        return true;
+    }
+
+    private void requestSeek(int relative) {
+        if (player == null || !playerPrepared) return;
+        pendingSeekRelative = (int)Math.max(0, Math.min(Math.max(0, duration-1), relative));
+        if (seeking) return;
+        try {
+            if (playing) player.pause();
+            playing = false;
+            cancelSegmentWatchdog();
+            seeking = true;
+            appliedSeekRelative = pendingSeekRelative;
+            player.seekTo(segment.absolute(appliedSeekRelative));
+            persistPosition(); publish();
+        } catch (IllegalArgumentException | IllegalStateException invalid) {
+            seeking = false;
+            publishError("定位播放进度失败");
+        }
+    }
+
+    private void finishPreparedPlayback(int token) {
+        if (destroyed || token != generation || player == null || !playerPrepared || seeking) return;
+        if (!applyEffectiveVolume()) return;
+        if (!desiredPlayback) { playing = false; persistPosition(); publish(); return; }
+        if (!requestFocus()) { publishError("系统暂不允许音频播放"); return; }
+        applyTuning();
+        player.start(); playing = true; enqueueStartedAudio(token);
+        armSegmentWatchdog(token); persistPosition(); publish();
+    }
+
+    private void completeTrack(int token) {
+        if (token != generation || completedGeneration == token) return;
+        completedGeneration = token;
+        cancelSegmentWatchdog();
+        if (player != null && playerPrepared) try { if (player.isPlaying()) player.pause(); } catch (IllegalStateException ignored) { }
+        playing = false; clearResumePosition();
+        if (desiredPlayback && queue != null && queue.count() > 0) advanceQueue(true);
+        else { desiredPlayback = false; publish(); }
+    }
+
+    private void armSegmentWatchdog(int token) {
+        cancelSegmentWatchdog();
+        if (!segment.cue || !playing) return;
+        segmentWatchdog = new Runnable() {
+            @Override public void run() {
+                if (destroyed || generation != token || !playing || seeking || player == null) return;
+                try {
+                    if (player.getCurrentPosition() >= segment.start + segment.length) { completeTrack(token); return; }
+                    progressHandler.postDelayed(this, 200);
+                } catch (IllegalStateException expired) { publishError("分轨播放状态失效"); }
+            }
+        };
+        progressHandler.postDelayed(segmentWatchdog, 200);
+    }
+
+    private void cancelSegmentWatchdog() {
+        if (progressHandler != null && segmentWatchdog != null) progressHandler.removeCallbacks(segmentWatchdog);
+        segmentWatchdog = null;
+    }
+
+    private int relativePosition() {
+        if (seeking) return pendingSeekRelative;
+        return player == null ? 0 : segment.relative(player.getCurrentPosition());
     }
 
     private static boolean isSupportedSource(String url) {
@@ -698,6 +927,8 @@ public final class AndroidPlaybackService extends Service {
     }
 
     private void pause() {
+        invalidatePrefetch();
+        cancelSegmentWatchdog();
         resumeOnFocusGain = false;
         if (player == null) {
             cancelUrlTask();
@@ -764,10 +995,10 @@ public final class AndroidPlaybackService extends Service {
         if (remotePlayback && LocalOnlyMode.enabled(this)) { publishError("已切换为本地模式"); return; }
         desiredPlayback = true;
         if (player == null) { resumeOrRestore(); return; }
-        if (!playerPrepared) { persistPosition(); return; }
+        if (!playerPrepared || seeking) { persistPosition(); return; }
         if (!requestFocus()) return;
         if (!applyEffectiveVolume()) return;
-        try { player.start(); playing = true; enqueueStartedAudio(generation); persistPosition(); publish(); }
+        try { finishPreparedPlayback(generation); }
         catch (IllegalStateException ignored) { publishError("播放器尚未准备完成"); }
     }
 
@@ -776,6 +1007,7 @@ public final class AndroidPlaybackService extends Service {
     }
 
     private void stopPlayback(boolean clearRemembered) {
+        invalidatePrefetch();
         generation++;
         cancelUrlTask();
         artworkGeneration++;
@@ -795,6 +1027,7 @@ public final class AndroidPlaybackService extends Service {
     }
 
     private void releasePlayer() {
+        cancelSegmentWatchdog(); seeking = false;
         MediaPlayer old = player; player = null;
         playerPrepared = false;
         remotePlayback = false;
@@ -817,7 +1050,7 @@ public final class AndroidPlaybackService extends Service {
         android.content.SharedPreferences preferences = getSharedPreferences(PLAYBACK_PREFS, MODE_PRIVATE);
         int position = 0;
         if (player != null && playerPrepared) {
-            try { position = Math.max(0, player.getCurrentPosition()); } catch (IllegalStateException ignored) { }
+            try { position = relativePosition(); } catch (IllegalStateException ignored) { }
         } else if (trackId == preferences.getLong(LAST_TRACK_ID, 0L)) {
             position = preferences.getInt(LAST_POSITION, 0);
         }
@@ -849,7 +1082,7 @@ public final class AndroidPlaybackService extends Service {
     private void publish() {
         int position = 0;
         if (player != null && playerPrepared) {
-            try { position = Math.max(0, player.getCurrentPosition()); } catch (IllegalStateException ignored) { }
+            try { position = relativePosition(); } catch (IllegalStateException ignored) { }
         } else if (trackId > 0) {
             position = getSharedPreferences(PLAYBACK_PREFS, MODE_PRIVATE).getInt(LAST_POSITION, 0);
         }
@@ -861,14 +1094,15 @@ public final class AndroidPlaybackService extends Service {
                 metadata.putBitmap(MediaMetadata.METADATA_KEY_ALBUM_ART, artwork);
             }
             session.setMetadata(metadata.build());
-            int state = urlLookupPending || buffering ? PlaybackState.STATE_BUFFERING : playing ? PlaybackState.STATE_PLAYING
+            int state = urlLookupPending || buffering || seeking ? PlaybackState.STATE_BUFFERING : playing ? PlaybackState.STATE_PLAYING
                     : trackId > 0 ? PlaybackState.STATE_PAUSED : PlaybackState.STATE_STOPPED;
             session.setPlaybackState(new PlaybackState.Builder().setActions(PlaybackState.ACTION_PLAY | PlaybackState.ACTION_PAUSE
                     | PlaybackState.ACTION_PLAY_PAUSE | PlaybackState.ACTION_STOP | PlaybackState.ACTION_SKIP_TO_NEXT
                     | PlaybackState.ACTION_SKIP_TO_PREVIOUS | PlaybackState.ACTION_SEEK_TO)
-                    .setState(state, position, playing && !buffering ? 1f : 0f, SystemClock.elapsedRealtime()).build());
+                    .setState(state, position, playing && !buffering ? actualSpeed : 0f, SystemClock.elapsedRealtime()).build());
         }
         getSharedPreferences(PLAYBACK_PREFS, MODE_PRIVATE).edit().putBoolean("playing", playing)
+                .putFloat("playbackRate", actualSpeed).putFloat("playbackPitch",actualPitch).putString("tuningWarning",tuningWarning)
                 .putBoolean("loading", urlLookupPending || player != null && !playerPrepared && desiredPlayback)
                 .putBoolean("buffering", buffering && playing)
                 .putLong("trackId", trackId).putString("title", title).putString("artist", artist)
@@ -1003,7 +1237,10 @@ public final class AndroidPlaybackService extends Service {
     }
 
     @Override public void onDestroy() {
+        invalidatePrefetch(); prefetchWorker.shutdownNow();
         destroyed = true;
+        if (connectivity != null) try { connectivity.close(); } catch (RuntimeException ignored) { }
+        connectivity = null;
         if (progressHandler != null) progressHandler.removeCallbacks(progressTicker);
         persistPosition();
         stopPlayback();

@@ -25,7 +25,8 @@ const checkedAt = computed(() => update.checkedAt > 0 ? new Date(update.checkedA
     <p class="setting-note">{{ $t('mobile.updates.defaultOff') }}</p>
     <p v-if="appUpdateAutomaticPaused" class="setting-note">{{ $t('mobile.updates.localPaused') }}</p>
     <p v-if="!appUpdateInstallAllowed" class="setting-note">{{ $t('mobile.updates.informationOnly') }}</p>
-    <p class="setting-note update-source">{{ $t('mobile.updates.source') }}<a href="https://github.com/EBG-bg/VutronMusic/releases" target="_blank" rel="noopener noreferrer">GitHub · EBG-bg/VutronMusic</a></p>
+    <p class="setting-note update-source">{{ $t('mobile.updates.source') }}<a href="https://github.com/EBG-bg/VutronMusic-Android/releases" target="_blank" rel="noopener noreferrer">GitHub · EBG-bg/VutronMusic-Android</a></p>
+    <p class="setting-note">{{ $t('mobile.updates.migration') }}</p>
     <div class="update-status" :class="{ failed: update.status === 'error' }" role="status" aria-live="polite">{{ appUpdatesSupported ? summary : $t('mobile.updates.androidRequired') }}</div>
     <progress v-if="update.status === 'downloading'" class="update-progress" :value="update.progress" max="100" :aria-label="$t('mobile.updates.progress')"></progress>
     <div class="timer-actions update-actions">

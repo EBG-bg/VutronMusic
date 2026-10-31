@@ -113,3 +113,9 @@ apps/android-vutron/_tools/
 packages/ui/src/*.vue.js
 packages/ui/src/*.vue.js.map
 packages/ui/src/*.vue.d.ts
+
+# Local assistant instructions and session state do not belong in release source.
+AGENTS.md
+CLAUDE.md
+.codex/
+.claude/

@@ -11,10 +11,11 @@ const props = withDefaults(defineProps<{
   family: LyricFamily
   position: number
   playing: boolean
+  rate?: number
   offsetMs: number
   duration?: number
   displaySettings?: LyricDisplaySettings
-}>(), { duration: 0 })
+}>(), { duration: 0, rate: 1 })
 const emit = defineEmits<{ seek: [position: number] }>()
 const container = ref<HTMLElement>()
 const activeIndex = ref(-1)
@@ -25,7 +26,7 @@ const estimated = computed(() => props.displaySettings?.estimatedWordTiming === 
 const hasEstimates = computed(() => estimated.value && props.family.original.some(line => !line.words.length && line.text))
 const displayLines = computed(() => lyricDisplayLines(props.family.original, estimated.value, props.duration))
 const displayStyle = computed(() => lyricDisplayStyle(props.displaySettings))
-let anchor: LyricPlaybackAnchor = { position: props.position, monotonicTime: performance.now(), playing: props.playing }
+let anchor: LyricPlaybackAnchor = { position: props.position, monotonicTime: performance.now(), playing: props.playing, rate: props.rate }
 let frame = 0
 let mounted = false
 let highlightedRow = -1
@@ -96,7 +97,7 @@ function animationFrame(now: number) {
 }
 
 function reanchor() {
-  anchor = { position: props.position, monotonicTime: performance.now(), playing: props.playing }
+  anchor = { position: props.position, monotonicTime: performance.now(), playing: props.playing, rate: props.rate }
   if (!mounted) return
   cancelAnimationFrame(frame)
   frame = 0
@@ -192,7 +193,7 @@ function seekLine(line: LyricLine, event: MouseEvent) {
   // A finger drag must not seek when a WebView synthesizes its trailing click.
   if (touchPointerMoved && event.detail !== 0) { touchPointerMoved = false; return }
   const target = lyricSeekPosition(line, props.offsetMs, props.duration)
-  anchor = { position: target, monotonicTime: performance.now(), playing: props.playing }
+  anchor = { position: target, monotonicTime: performance.now(), playing: props.playing, rate: props.rate }
   manualScroll.value = false
   renderClock()
   void followActive(false, true)
@@ -220,7 +221,7 @@ function onViewportChange() {
   })
 }
 
-watch(() => [props.position, props.playing, props.offsetMs, props.duration], reanchor)
+watch(() => [props.position, props.playing, props.rate, props.offsetMs, props.duration], reanchor)
 watch(displayLines, () => {
   highlightedRow = -1
   reanchor()

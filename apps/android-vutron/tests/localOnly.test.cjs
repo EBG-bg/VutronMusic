@@ -20,9 +20,10 @@ function deferred() {
   return { promise, resolve }
 }
 
-function fixture({ nativeMode = false, preference = false, sessionProfile, handlers = {} } = {}) {
+function fixture({ nativeMode = false, preference = false, sessionProfile, connected = true, handlers = {} } = {}) {
   const calls = []
-  const nativeState = { mode: nativeMode, account: sessionProfile }
+  const nativeState = { mode: nativeMode, manual: nativeMode, connected, account: sessionProfile }
+  const listeners = new Map()
   const localStorageValues = new Map([['vutron.mobile.local-only', String(preference)]])
   const timers = new Map()
   let nextTimer = 0
@@ -38,8 +39,12 @@ function fixture({ nativeMode = false, preference = false, sessionProfile, handl
     return result
   }
   const native = {
-    getLocalOnly: method('getLocalOnly', () => ({ enabled: nativeState.mode })),
-    setLocalOnly: method('setLocalOnly', argument => { nativeState.mode = argument.enabled; return { enabled: nativeState.mode } }),
+    async addListener(name, callback) { listeners.set(name, callback); return { async remove() { listeners.delete(name) } } },
+    getLocalOnly: method('getLocalOnly', () => {
+      nativeState.mode = nativeState.manual || !nativeState.connected || !nativeState.account
+      return { enabled: nativeState.mode, manual: nativeState.manual, connected: nativeState.connected }
+    }),
+    setLocalOnly: method('setLocalOnly', argument => { nativeState.mode = argument.enabled; nativeState.manual = argument.manual ?? argument.enabled; return { enabled: nativeState.mode, manual: nativeState.manual, connected: nativeState.connected } }),
     getSession: method('getSession', () => ({ loggedIn: Boolean(nativeState.account), profile: nativeState.account })),
     loginWithCookie: method('loginWithCookie', () => ({ profile: account })),
     createQrLogin: method('createQrLogin', () => ({ key: 'qr-test', url: 'https://example.invalid/qr', imageData: 'data:image/png;base64,test' })),
@@ -107,10 +112,11 @@ function fixture({ nativeMode = false, preference = false, sessionProfile, handl
   pinia.setActivePinia(instance)
   const store = load(path.join(appRoot, 'src/stores/androidShell.ts')).useAndroidShellStore(instance)
   return {
-    store, count, argsFor, nativeState, timers,
+    store, count, argsFor, nativeState, timers, localStorageValues, listeners,
+    async emitNetwork() { await listeners.get('musicNetworkChanged')?.({}) },
     pageRefresh: libraryMode => load(path.join(appRoot, 'src/composables/pageRefresh.ts')).usePageRefresh(store, libraryMode),
     libraryPresentation: load(path.join(appRoot, 'src/composables/libraryPresentation.ts')),
-    dispose() { store.stopPlaybackPolling(); store.$dispose() }
+    dispose() { store.disposeNetworkMonitoring(); store.stopPlaybackPolling(); store.$dispose() }
   }
 }
 
@@ -122,6 +128,39 @@ function assertLocalData(store) {
   assert.equal(store.overlaySettings.fontSize, 26)
   assert.equal(store.autoMatchSources, false)
 }
+
+test('failed folder scans retain rows, show the folder warning, and respect the automatic retry window', async () => {
+  const f = fixture({ nativeMode: true, handlers: {
+    getLocalMusicIndex: async () => ({ tracks: [localTrack], indexed: true, updatedAt: 0, incomplete: true, retryAfter: Date.now() + 300000 }),
+    scanLocalMusic: async () => ({ tracks: [localTrack], complete: false, warnings: [{ folderId: 'folder:main', message: '子目录读取失败，旧索引已保留' }] })
+  } })
+  try {
+    await f.store.restore()
+    assert.equal(f.count('scanLocalMusic'), 0)
+    await f.store.loadLocalMusic(true)
+    assert.equal(f.store.localTracks[0].id, localTrack.id)
+    assert.match(f.store.error, /本地目录.*旧索引已保留/)
+    await f.store.loadLocalMusic()
+    assert.equal(f.count('scanLocalMusic'), 1)
+  } finally { f.dispose() }
+})
+
+test('pagination keeps the submitted query while an unsubmitted draft is edited', async () => {
+  const f = fixture({ sessionProfile: account, handlers: {
+    search: async q => ({ items: [{ id: q.page, name: q.keywords + q.page }], count: 5, page: q.page, nextPage: q.page + 1 })
+  } })
+  try {
+    await f.store.restore()
+    await f.store.runSearch('tracks', 'Alpha', true)
+    f.store.searchKeywords = 'Beta'
+    await f.store.loadMoreSearch()
+    assert.deepEqual(f.argsFor('search').map(q => [q.keywords,q.page]), [['Alpha',1],['Alpha',2]])
+    assert.equal(f.store.searchKeywords, 'Beta')
+    assert.equal(f.store.searchResults.map(row => row.name).join(','), 'Alpha1,Alpha2')
+    await f.store.runSearch('tracks', 'Beta', true)
+    assert.equal(f.store.searchResults.map(row => row.name).join(','), 'Beta1')
+  } finally { f.dispose() }
+})
 
 test('an open queue only fetches its full contents when queue state changes or a new source is played', async () => {
   const state = { trackId: 0, playing: false, position: 0, duration: 0, error: '', queueIndex: 0, queueCount: 2000, upNextCount: 0, mode: 0 }
@@ -326,13 +365,16 @@ test('restore without a profile still restores local indexes, offline playlists 
   f.dispose()
 })
 
-test('persisted local mode never restores an online session or starts NetEase and QR requests', async () => {
+test('persisted manual local mode restores the saved account without starting NetEase or QR requests', async () => {
   const f = fixture({ nativeMode: true, sessionProfile: account })
   await f.store.restore()
   assertLocalData(f.store)
   assert.equal(f.store.localOnly, true)
   assert.equal(f.store.onlineAvailable, false)
-  for (const name of ['getSession', 'getPlaylists', 'getHomeData', 'createQrLogin', 'checkQrLogin']) assert.equal(f.count(name), 0, name)
+  assert.equal(f.count('getSession'), 1)
+  assert.equal(f.store.profile.userId, account.userId)
+  assert.equal(f.store.loggedIn, true)
+  for (const name of ['getPlaylists', 'getHomeData', 'createQrLogin', 'checkQrLogin']) assert.equal(f.count(name), 0, name)
   assert.equal(f.count('scanLocalMusic'), 0)
   f.dispose()
 })
@@ -345,6 +387,59 @@ test('session restoration failure keeps the local library usable', async () => {
   assert.equal(f.nativeState.mode, true)
   assert.match(f.store.error, /session unavailable/)
   assert.equal(f.count('getPlaylists'), 0)
+  f.dispose()
+})
+
+test('offline cold start retains the account and reconnects without a new login or sticky offline preference', async () => {
+  const f = fixture({ sessionProfile: account, connected: false })
+  await f.store.restore()
+  assert.equal(f.store.loggedIn, true); assert.equal(f.store.profile.userId, account.userId)
+  assert.equal(f.store.localOnly, true); assert.equal(f.store.manualLocalOnly, false)
+  assert.equal(f.localStorageValues.get('vutron.mobile.local-only'), 'false')
+  assert.equal(f.count('getPlaylists'), 0)
+  f.nativeState.connected = true; await f.emitNetwork()
+  assert.equal(f.store.onlineAvailable, true); assert.equal(f.nativeState.manual, false)
+  assert.equal(f.count('getPlaylists'), 1); assert.equal(f.count('loginWithCookie'), 0)
+  const restart = fixture({ sessionProfile: f.nativeState.account, nativeMode: f.nativeState.manual })
+  await restart.store.restore(); assert.equal(restart.store.loggedIn, true); assert.equal(restart.store.onlineAvailable, true)
+  restart.dispose(); f.dispose()
+  assert.equal(f.listeners.size, 0)
+})
+
+test('manual offline survives disconnect/reconnect until the user enables automatic mode', async () => {
+  const f = fixture({ sessionProfile: account }); await f.store.restore()
+  f.store.activeTab = 'settings'
+  await f.store.enterLocalOnly(); const reads = f.count('getPlaylists')
+  assert.equal(f.store.activeTab, 'settings')
+  assert.equal(f.store.manualLocalOnly, true); assert.equal(f.store.loggedIn, true)
+  f.nativeState.connected = false; await f.emitNetwork()
+  f.nativeState.connected = true; await f.emitNetwork()
+  assert.equal(f.store.localOnly, true); assert.equal(f.count('getPlaylists'), reads)
+  await f.store.useAutomaticMode()
+  assert.equal(f.store.onlineAvailable, true); assert.equal(f.nativeState.manual, false)
+  assert.equal(f.localStorageValues.get('vutron.mobile.local-only'), 'false')
+  assert.equal(f.count('getPlaylists'), reads + 1)
+  f.dispose()
+})
+
+test('a late connectivity response cannot undo a newer manual offline choice', async () => {
+  const response = deferred(); let slow = false
+  const f = fixture({ sessionProfile: account, handlers: { getLocalOnly: () => slow ? response.promise : { enabled: false, manual: false, connected: true } } })
+  await f.store.restore(); slow = true
+  const reading = f.store.refreshConnectivity()
+  await f.store.enterLocalOnly()
+  response.resolve({ enabled: false, manual: false, connected: true }); await reading
+  assert.equal(f.store.localOnly, true); assert.equal(f.store.manualLocalOnly, true)
+  f.dispose()
+})
+
+test('automatic disconnect preserves a cached player context and never clears the saved account', async () => {
+  const f = fixture({ sessionProfile: account }); await f.store.restore()
+  f.store.activeTab = 'player'; f.store.playback = { playing: true, trackId: 61, position: 45000, duration: 180000, title: 'Cached', artist: '', error: '' }
+  f.nativeState.connected = false; await f.emitNetwork()
+  assert.equal(f.store.activeTab, 'player'); assert.equal(f.store.playback.position, 45000)
+  assert.equal(f.store.profile.userId, account.userId); assert.equal(f.count('logout'), 0)
+  assert.equal(f.localStorageValues.get('vutron.mobile.local-only'), 'false')
   f.dispose()
 })
 
@@ -376,7 +471,7 @@ test('explicit QR login is allowed from local mode and success enables online ca
   await f.store.checkQrLogin()
   assert.equal(f.store.onlineAvailable, true)
   assert.equal(f.store.qrLoginKey, '')
-  assert.equal(f.count('getSession'), 0)
+  assert.equal(f.count('getSession'), 1)
   assertLocalData(f.store)
   f.dispose()
 })

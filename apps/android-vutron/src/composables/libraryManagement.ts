@@ -1,5 +1,5 @@
 import { useAndroidShellStore } from '../stores/androidShell'
-import { vutronPlugin, type VutronTrack, type VutronLocalCollection } from '../platform/vutronPlugin'
+import { vutronPlugin, type VutronTrack, type VutronLocalCollection, type VutronPlaylist } from '../platform/vutronPlugin'
 import { translate as t } from '../platform/i18n'
 import { askAction } from '../platform/actionDialog'
 
@@ -43,7 +43,27 @@ export function useLibraryManagement() {
     } catch (cause) { store.error = cause instanceof Error ? cause.message : t('mobile.management.failed'); return false }
     finally { libraryMutationBusy.value = false }
   }
-  return { deleteCachedTrack, removeLocalTrack: (track: VutronTrack) => manage('removeTrack', track),
+  let cacheConfirmation = false
+  async function deleteOfflinePlaylist(playlist: VutronPlaylist): Promise<boolean> {
+    if (!vutronPlugin.deleteCachedPlaylist || libraryMutationBusy.value || cacheConfirmation) return false
+    cacheConfirmation = true
+    try {
+      const choice = await askAction({ title: t('mobile.offline.deletePlaylist'), message: t('mobile.offline.deleteHint', { name: playlist.name }), confirmLabel: t('mobile.offline.deletePlaylist'), cancelLabel: t('mobile.management.cancel') })
+      if (choice !== 'confirm' || libraryMutationBusy.value) return false
+      libraryMutationBusy.value = true
+      try {
+        store.error = ''
+        const result = await vutronPlugin.deleteCachedPlaylist({ playlistId: playlist.id, userId: playlist.cacheOwnerId })
+        if (!result.removed) return false
+        store.removeCachedPlaylistView(playlist.id)
+        await Promise.all([store.loadOfflinePlaylists(), store.loadCacheStatus(false)])
+        store.queueNotice = t('mobile.offline.deleted')
+        return true
+      } catch (cause) { store.error = cause instanceof Error ? cause.message : t('mobile.management.failed'); return false }
+      finally { libraryMutationBusy.value = false }
+    } finally { cacheConfirmation = false }
+  }
+  return { deleteCachedTrack, deleteOfflinePlaylist, removeLocalTrack: (track: VutronTrack) => manage('removeTrack', track),
     removeCollection: (collection: VutronLocalCollection, action: 'deletePlaylist' | 'forgetFolder') => manage(action, undefined, collection),
     restoreRemoved: () => manage('restoreRemoved') }
 }

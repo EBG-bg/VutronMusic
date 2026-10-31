@@ -3,6 +3,7 @@
     <cloud-backup disableIfNoEncryptionCapabilities="true">
         <include domain="sharedpref" path="lyric_overlay.xml" />
         <include domain="sharedpref" path="playback_volume.xml" />
+        <include domain="sharedpref" path="playback_tuning.xml" />
         <include domain="sharedpref" path="audio_cache_settings.xml" />
         <include domain="sharedpref" path="artwork_cache_settings.xml" />
         <include domain="sharedpref" path="local_folder.xml" />
@@ -11,6 +12,7 @@
     <device-transfer>
         <include domain="sharedpref" path="lyric_overlay.xml" />
         <include domain="sharedpref" path="playback_volume.xml" />
+        <include domain="sharedpref" path="playback_tuning.xml" />
         <include domain="sharedpref" path="audio_cache_settings.xml" />
         <include domain="sharedpref" path="artwork_cache_settings.xml" />
         <include domain="sharedpref" path="local_folder.xml" />

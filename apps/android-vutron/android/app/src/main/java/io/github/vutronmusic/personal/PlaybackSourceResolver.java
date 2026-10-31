@@ -25,9 +25,12 @@ public final class PlaybackSourceResolver {
     }
 
     public static JSONObject resolve(Context context, long trackId, Consumer<String> status) throws IOException {
+        return resolve(context,trackId,status,() -> true);
+    }
+    static JSONObject resolve(Context context, long trackId, Consumer<String> status, BooleanSupplier permitted) throws IOException {
         if (trackId <= 0) throw new IOException("歌曲 ID 无效");
         Context app = context.getApplicationContext();
-        BooleanSupplier onlineAllowed = () -> !LocalOnlyMode.enabled(app);
+        BooleanSupplier onlineAllowed = () -> !LocalOnlyMode.enabled(app) && permitted.getAsBoolean() && !Thread.currentThread().isInterrupted();
         JSONObject location = resolveSources(onlineAllowed, () -> {
             status.accept("正在获取网易云播放地址…");
             return fullTrack(new NeteaseApi(SessionStore.load(app), onlineAllowed).songUrl(trackId), "netease");

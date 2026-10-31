@@ -1,6 +1,6 @@
 # Vutron Music - Mobile privacy information
 
-Effective for public mobile release **1.0.1**; reviewed **2026-10-26**. Maintainer and source: **EBG-bg and contributors**, `https://github.com/EBG-bg/VutronMusic`. Report privacy issues through the repository's issue mechanism; do not post account cookies, signed media URLs, local music or device identifiers in a public issue.
+Applies to **Vutron Music - Mobile**; reviewed **2026-10-31**. Maintainer and source: **EBG-bg and contributors**, `https://github.com/EBG-bg/VutronMusic`. Report privacy issues through the repository's issue mechanism; do not post account cookies, signed media URLs, local music or device identifiers in a public issue.
 
 ## What the app handles
 
@@ -14,6 +14,8 @@ The separate manual JSON backup contains allowlisted settings and local playlist
 - **Profile and library:** account ID, nickname, avatar reference, playlists, track metadata, lyric cache, artwork and playback history/progress are stored in the app's private files/preferences. Playlist and artwork snapshots permit offline browsing. Audio files are cached after playback when automatic caching is enabled, or when you explicitly request saving a track, subject to capacity and availability.
 - **Local music:** the Android system picker grants access to folders you select. Persisted folder URIs and an index of tags/durations are retained so the app can rescan and play them. A computer playlist ZIP you select is extracted into the app's private `local-bundles` directory. The importer reads its manifest/audio paths; it does not need your desktop account configuration.
 - **Settings:** per-song/per-playlist volume, lyric delay, overlay colors and position, UI preferences, timers and the playback queue are saved locally.
+- **Comments:** when you open online track comments, the app sends the target and pagination information to NetEase. Explicit like, post, reply and delete actions use the account session; comment text is sent only for a post or reply. Comment lists and drafts are not persistently cached by the app. These actions are disabled offline.
+- **Playback speed and prefetch:** speed, pitch and the optional next-track prefetch preference are stored locally and included in settings backups. Prefetch defaults to off and runs only on validated Wi-Fi. It resolves the next known online source near the end of playback, holds the address and media headers briefly in memory, and does not download audio ahead.
 - **Local-only mode and cache index:** this mode does not require a profile or account. Music-provider requests and alternative-source matching are disabled; local files and completed caches remain available. A separate cache-owner index permits reading existing cached playlists after sign-out; it is not a login session or account permission.
 - **App updates:** the automatic-check preference is stored locally and defaults to off. Update metadata and a downloaded APK are held in private preferences/cache until replaced or no longer needed.
 - **Diagnostics:** native Android logging and the embedded matcher retain operational diagnostic events/errors on the device. The matcher diagnostic wrapper intentionally records fixed stage/source/error-type fields rather than account cookies or signed audio URLs. This is not a guarantee about Android system logs or third-party service logs. Review any exported diagnostic file before sharing it.
@@ -30,7 +32,7 @@ The manifest permits network access. Android cleartext exceptions are restricted
 
 ## Permissions
 
-App updates contact the GitHub API for EBG-bg/VutronMusic Releases only after a manual check or when automatic checks are enabled. GitHub and its release-asset CDN receive ordinary request metadata, including IP address and app-version User-Agent. Music account cookies are not sent with these requests. APK downloads use HTTPS and verify the release asset's SHA-256, size, package, version and signing certificate. Local-only music mode pauses automatic checks; an explicit manual check still connects to GitHub.
+From 1.0.2, app updates contact only the GitHub API for EBG-bg/VutronMusic-Android Releases after a manual check or when automatic checks are enabled. The archived EBG-bg/VutronMusic repository is no longer queried or accepted for update downloads. GitHub and its release-asset CDN receive ordinary request metadata, including IP address and app-version User-Agent. Music account cookies are not sent with these requests. APK downloads use HTTPS and verify the release asset's SHA-256, size, package, version and signing certificate. Local-only music mode pauses automatic checks; an explicit manual check still connects to GitHub.
 
 - **Internet / network state:** direct service calls, media/artwork downloads and Wi-Fi-aware lyric validation.
 - **Install packages:** used only to open Android's installer for a verified update you request. Android controls the per-app installation permission and final confirmation; the app does not silently install APKs.

@@ -81,5 +81,5 @@ export function useTrackActionMenu() {
     returnFocus = document.activeElement instanceof HTMLElement ? document.activeElement : undefined
     trackAction.value = store.trackWithContext(track, playlistKey)
   }
-  return { trackAction, openTrackMenu, closeTrackMenu, vTrackMenu }
+  return { trackAction, openTrackMenu, closeTrackMenu, vTrackMenu, trackMenuReturnFocus: () => returnFocus }
 }

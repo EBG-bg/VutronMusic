@@ -38,6 +38,7 @@ export function createLocalLibrary(options: LocalLibraryOptions) {
           const result = await vutronPlugin.scanLocalMusic!()
           if (result.cancelled) return
           if (revision === localIndexRevision) localTracks.value = result.tracks ?? []
+          if (result.warnings?.length) options.error.value = result.warnings.map(warning => (localLibrary.value.folders.find(folder => folder.id === warning.folderId)?.name ?? '授权目录') + '：' + warning.message).join('\n')
           await loadLocalLibrary()
         } catch (cause) { options.error.value = options.formatError(cause, '本地音乐扫描失败') }
         finally { localScanLoading.value = false; localScanTask = undefined }
@@ -52,7 +53,7 @@ export function createLocalLibrary(options: LocalLibraryOptions) {
         if (revision === localIndexRevision && !localScanLoading.value) localTracks.value = index.tracks ?? []
         await loadLocalLibrary()
         if (allowAutomaticScan && !localScanLoading.value && localLibrary.value.folders.length
-          && (!index.indexed || Date.now() - index.updatedAt > 24 * 60 * 60 * 1000)) void loadLocalMusic(true)
+          && (index.incomplete ? Date.now() >= (index.retryAfter ?? 0) : !index.indexed || Date.now() - index.updatedAt > 24 * 60 * 60 * 1000)) void loadLocalMusic(true)
       } catch (cause) { options.error.value = options.formatError(cause, '本地音乐索引读取失败') }
       finally { localIndexTask = undefined }
     })()

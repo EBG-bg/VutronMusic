@@ -55,7 +55,7 @@ public final class PlaybackVolume {
         boolean onlineIdentity = song.optLong("neteaseId") > 0 || song.optJSONObject("privilege") != null
                 || album != null && album.optLong("id") > 0;
         if (id > 0 && (uri.isEmpty() || onlineIdentity)) return "track:id:" + id;
-        return uri.isEmpty() ? "" : "track:local:" + sha256(uri);
+        return uri.isEmpty() ? "" : "track:local:" + sha256(uri + PlaybackSegment.suffix(song));
     }
 
     /** An absent playlist identity leaves its volume at 100%. */

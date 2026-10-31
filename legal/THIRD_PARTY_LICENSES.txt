@@ -1,4 +1,4 @@
-Vutron Music - Mobile 1.0.1 — retained third-party license texts
+Vutron Music - Mobile 1.0.2 — retained third-party license texts
 This collection preserves upstream texts. It does not relicense third-party components.
 
 

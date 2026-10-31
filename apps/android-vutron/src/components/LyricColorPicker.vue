@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed, reactive, ref, watch } from 'vue'
+import ThumbRange from './ThumbRange.vue'
 import {
   argbCss, argbHex, argbToHsv, clampUnit, hsvToArgb, lyricColorPresets, lyricColorTargets, parseArgbHex,
   type LyricColorKey, type LyricColorSettings
@@ -142,8 +143,8 @@ function presetColors(values: Partial<Record<LyricColorKey, number>>) {
     <div :id="'lyric-sv-' + selected" class="lyric-sv-surface" tabindex="0" role="slider" aria-label="饱和度与明度" aria-valuemin="0" aria-valuemax="100" :aria-valuenow="Math.round(hsv.saturation * 100)" :aria-valuetext="'饱和度 ' + Math.round(hsv.saturation * 100) + '%，明度 ' + Math.round(hsv.value * 100) + '%。左右调整饱和度，上下调整明度。'" :style="{ backgroundColor: hueColor }" @pointerdown="startSurfaceDrag" @pointermove="moveSurfaceDrag" @pointerup="finishSurfaceDrag" @pointercancel="finishSurfaceDrag" @lostpointercapture="activePointer = undefined" @keydown="keySurface">
       <span class="sv-thumb" :style="{ left: hsv.saturation * 100 + '%', top: (1 - hsv.value) * 100 + '%', backgroundColor: opaqueColor }"></span>
     </div>
-    <label class="lyric-channel"><span>色相 <small>{{ Math.round(hsv.hue) }}°</small></span><input type="range" min="0" max="360" step="1" :value="hsv.hue" class="hue-channel" aria-label="歌词色相" @input="rangeInput('hue', $event)" @change="emit('commit')" /></label>
-    <label class="lyric-channel"><span>不透明度 <small>{{ alphaPercent }}%</small></span><span class="alpha-channel checkerboard"><i :style="{ background: 'linear-gradient(to right, transparent, ' + opaqueColor + ')' }"></i><input type="range" min="0" max="255" step="1" :value="hsv.alpha" :aria-valuetext="alphaPercent + '%'" aria-label="歌词颜色不透明度" @input="rangeInput('alpha', $event)" @change="emit('commit')" /></span></label>
+    <label class="lyric-channel"><span>色相 <small>{{ Math.round(hsv.hue) }}°</small></span><ThumbRange variant="color" min="0" max="360" step="1" :value="hsv.hue" class="hue-channel" aria-label="歌词色相" @input="rangeInput('hue', $event)" @change="emit('commit')" /></label>
+    <label class="lyric-channel"><span>不透明度 <small>{{ alphaPercent }}%</small></span><span class="alpha-channel checkerboard"><i :style="{ background: 'linear-gradient(to right, transparent, ' + opaqueColor + ')' }"></i><ThumbRange variant="color" min="0" max="255" step="1" :value="hsv.alpha" :aria-valuetext="alphaPercent + '%'" aria-label="歌词颜色不透明度" @input="rangeInput('alpha', $event)" @change="emit('commit')" /></span></label>
     <label class="lyric-hex-field"><span>{{ lyricColorTargets.find(target => target.key === selected)?.label }}颜色值</span><input v-model="hexInput" type="text" inputmode="text" autocomplete="off" spellcheck="false" maxlength="9" aria-label="歌词十六进制颜色" :aria-invalid="Boolean(hexError)" @focus="hexFocused = true" @input="editHex" @blur="finishHex" @keydown.enter.prevent="finishHex" /></label>
     <Transition name="lyric-color-feedback"><p v-if="hexError" class="lyric-color-error" role="alert">{{ hexError }}</p></Transition>
     <p class="lyric-color-help">#AARRGGBB 开头两位控制不透明度：00 透明，FF 不透明。键盘方向键微调，Shift 加大步长。</p>
@@ -173,15 +174,10 @@ function presetColors(values: Partial<Record<LyricColorKey, number>>) {
 .lyric-sv-surface { position: relative; min-width: 0; width: 100%; height: 144px; border: 1px solid var(--line); border-radius: 8px; background-image: linear-gradient(to top, #000, transparent), linear-gradient(to right, #fff, transparent); touch-action: none; cursor: crosshair; }
 .sv-thumb { position: absolute; width: 12px; height: 12px; border: 2px solid #fff; border-radius: 50%; box-shadow: 0 0 0 1px #0009; transform: translate(-50%, -50%); pointer-events: none; }
 .lyric-channel { display: grid; gap: 2px; min-width: 0; }
-.lyric-channel input { display: block; width: 100%; min-width: 0; height: 30px; margin: 0; padding: 0; -webkit-appearance: none; appearance: none; border: 0; background: transparent; touch-action: pan-y; cursor: pointer; }
+.lyric-channel .thumb-range { margin: 0; }
 .hue-channel { border-radius: 8px; background-image: linear-gradient(to right, #f00, #ff0, #0f0, #0ff, #00f, #f0f, #f00) !important; }
-.alpha-channel { display: block; width: 100%; height: 30px; position: relative; overflow: hidden; border-radius: 8px; }
-.alpha-channel > i { position: absolute; inset: 0; pointer-events: none; }
-.alpha-channel > input { position: relative; }
-.lyric-channel input::-webkit-slider-runnable-track { height: 30px; border: 0; background: transparent; }
-.lyric-channel input::-webkit-slider-thumb { width: 11px; height: 30px; -webkit-appearance: none; appearance: none; border: 2px solid #fff; border-radius: 5px; background: transparent; box-shadow: 0 0 0 1px #0009; }
-.lyric-channel input::-moz-range-track { height: 30px; background: transparent; border: 0; }
-.lyric-channel input::-moz-range-thumb { width: 9px; height: 26px; border: 2px solid #fff; border-radius: 5px; background: transparent; box-shadow: 0 0 0 1px #0009; }
+.alpha-channel { display: block; width: 100%; height: 34px; position: relative; border-radius: 8px; }
+.alpha-channel > i { position: absolute; inset: 0; border-radius: inherit; pointer-events: none; }
 .lyric-hex-field { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
 .lyric-hex-field input { min-width: 0; width: 132px; height: 36px; padding: 6px 10px; border: 1px solid var(--line); border-radius: 8px; color: var(--color-text); background: var(--color-secondary-bg); font: inherit; font-family: ui-monospace, monospace; }
 .lyric-hex-field input[aria-invalid='true'] { border-color: #c94953; }

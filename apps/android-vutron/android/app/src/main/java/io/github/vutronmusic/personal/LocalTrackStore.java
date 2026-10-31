@@ -37,13 +37,29 @@ final class LocalTrackStore {
     }
 
     static synchronized void saveFolderIndex(Context context, JSONArray songs) {
+        saveFolderIndex(context,songs,new java.util.HashSet<>(context.getSharedPreferences(PREFS,Context.MODE_PRIVATE)
+                .getStringSet("folder_scan_failed_ids",java.util.Collections.emptySet())));
+    }
+    static synchronized void saveScan(Context context,FolderScanResult scan) {
+        java.util.Set<String> failed=new java.util.HashSet<>(context.getSharedPreferences(PREFS,Context.MODE_PRIVATE)
+                .getStringSet("folder_scan_failed_ids",java.util.Collections.emptySet()));
+        failed.removeAll(scan.completed.keySet());
+        for(int i=0;i<scan.warnings.length();i++) failed.add(scan.warnings.optJSONObject(i).optString("folderId"));
+        saveFolderIndex(context,scan.merge(loadFolderIndex(context)),failed);
+    }
+    private static void saveFolderIndex(Context context, JSONArray songs,java.util.Set<String> failed) {
         LibraryTaskRunner.checkCancelled();
+        boolean complete=failed.isEmpty();
         JSONArray filtered = filterExcluded(songs, exclusions(context));
-        if (!context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit().putString("folder_index", filtered.toString())
-                .putLong("folder_index_updated_at", System.currentTimeMillis()).commit()) throw new IllegalStateException("本地索引保存失败");
+        android.content.SharedPreferences prefs=context.getSharedPreferences(PREFS,Context.MODE_PRIVATE);
+        if (!prefs.edit().putString("folder_index", filtered.toString())
+                .putLong("folder_index_updated_at",complete?System.currentTimeMillis():prefs.getLong("folder_index_updated_at",0))
+                .putBoolean("folder_scan_incomplete",!complete).putLong("folder_scan_retry_after",complete?0:System.currentTimeMillis()+300000)
+                .putStringSet("folder_scan_failed_ids",failed)
+                .commit()) throw new IllegalStateException("本地索引保存失败");
     }
 
-    static String exclusionKey(JSONObject track) { return track.optString("localFolderId") + "\n" + track.optString("localUri", track.optString("uri", track.optString("localPath"))); }
+    static String exclusionKey(JSONObject track) { return track.optString("localFolderId") + "\n" + track.optString("localUri", track.optString("uri", track.optString("localPath"))) + PlaybackSegment.suffix(track); }
     static java.util.Set<String> exclusions(Context context) {
         return new java.util.HashSet<>(context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).getStringSet("excluded_tracks", java.util.Collections.emptySet()));
     }
@@ -77,6 +93,11 @@ final class LocalTrackStore {
     }
     static synchronized void removeFolder(Context context, String folderId) {
         removeMatching(context, row -> folderId.equals(row.optString("localFolderId")));
+        android.content.SharedPreferences prefs=context.getSharedPreferences(PREFS,Context.MODE_PRIVATE);
+        java.util.Set<String> failed=new java.util.HashSet<>(prefs.getStringSet("folder_scan_failed_ids",java.util.Collections.emptySet()));
+        failed.remove(folderId);
+        prefs.edit().putStringSet("folder_scan_failed_ids",failed).putBoolean("folder_scan_incomplete",!failed.isEmpty())
+                .putLong("folder_scan_retry_after",failed.isEmpty()?0:prefs.getLong("folder_scan_retry_after",0)).apply();
     }
 
     static synchronized boolean hasFolderIndex(Context context) {

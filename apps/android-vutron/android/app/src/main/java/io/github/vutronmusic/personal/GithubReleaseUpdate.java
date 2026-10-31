@@ -15,7 +15,8 @@ import java.util.regex.Pattern;
 
 /** Validates the public GitHub releases response without Android or account state. */
 final class GithubReleaseUpdate {
-    private static final String REPOSITORY_PATH = "/EBG-bg/VutronMusic";
+    static final String REPOSITORY = "EBG-bg/VutronMusic-Android";
+    private static final String REPOSITORY_PATH = "/" + REPOSITORY;
     private static final String DOWNLOAD_PATH = REPOSITORY_PATH + "/releases/download/";
     private static final String TAG_PREFIX = "mobile-v";
     private static final long MAX_ASSET_SIZE = 200L * 1024 * 1024;
@@ -81,9 +82,18 @@ final class GithubReleaseUpdate {
         String host = uri.getHost().toLowerCase(Locale.ROOT);
         if (!"github.com".equals(host)) return true;
         String path = uri.getRawPath();
-        if (path == null || !path.startsWith(DOWNLOAD_PATH)) return false;
+        if (uri.getRawQuery() != null || path == null) return false;
+        if (!path.startsWith(DOWNLOAD_PATH)) return false;
         String[] suffix = path.substring(DOWNLOAD_PATH.length()).split("/", -1);
         return suffix.length == 2 && safeDownloadSegment(suffix[0]) && safeDownloadSegment(suffix[1]);
+    }
+
+    static boolean hasValidLocation(Release release) {
+        if (release == null || parseVersion(release.version) == null
+                || !(TAG_PREFIX + release.version).equals(release.tagName)
+                || !("Vutron-Music-Mobile-" + release.version + "-arm64.apk").equals(release.assetName)) return false;
+        return isRepositoryUrl(release.releaseUrl, REPOSITORY_PATH + "/releases/tag/" + release.tagName)
+                && isRepositoryUrl(release.downloadUrl, DOWNLOAD_PATH + release.tagName + "/" + release.assetName);
     }
 
     private static Release parseRelease(JSONObject release) {

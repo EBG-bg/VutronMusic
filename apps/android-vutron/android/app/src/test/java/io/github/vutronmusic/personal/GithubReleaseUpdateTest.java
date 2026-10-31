@@ -7,7 +7,7 @@ import org.junit.Test;
 import static org.junit.Assert.*;
 
 public class GithubReleaseUpdateTest {
-    private static final String REPOSITORY = "https://github.com/EBG-bg/VutronMusic";
+    private static final String REPOSITORY = "https://github.com/EBG-bg/VutronMusic-Android";
     private static final String SHA256 =
             "c443a1cf39291cba09e024fb3f70e044f95f61e3e6906cc4e9d4e3f74b526207";
 

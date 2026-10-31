@@ -24,7 +24,6 @@ import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.net.HttpURLConnection;
-import java.net.URI;
 import java.net.URL;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
@@ -33,10 +32,9 @@ import java.util.Locale;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
-/** Explicit verified updates from the Mobile fork, independent of music login and cookies. */
+/** Explicit verified updates from the standalone Android repository, independent of music login. */
 final class AppUpdateManager {
-    static final String RELEASES_URL = "https://github.com/EBG-bg/VutronMusic/releases";
-    private static final String API_URL = "https://api.github.com/repos/EBG-bg/VutronMusic/releases?per_page=100";
+    static final String RELEASES_URL = "https://github.com/" + GithubReleaseUpdate.REPOSITORY + "/releases";
     static final long MAX_APK_BYTES = 200L * 1024 * 1024;
     static final long AUTO_INTERVAL_MS = 6L * 60 * 60 * 1000;
     private static final int MAX_API_BYTES = 4 * 1024 * 1024;
@@ -162,10 +160,9 @@ final class AppUpdateManager {
                 if (!allowsCheck(manual, LocalOnlyMode.enabled(context))) return;
                 GithubReleaseUpdate.Release latest = GithubReleaseUpdate.selectLatest(fetchReleases());
                 if (!allowsCheck(manual, LocalOnlyMode.enabled(context))) return;
-                if (latest == null) throw new UpdateException("GitHub 暂无可验证的稳定 ARM64 安装包，请稍后再检查");
                 synchronized (this) {
                     if (latest == null || !GithubReleaseUpdate.isNewer(latest.version, comparisonVersion)) {
-                        release = latest; status = "upToDate"; progress = 0; downloadedBytes = 0; totalBytes = latest == null ? 0 : latest.size;
+                        release = latest; status = latest == null ? "noRelease" : "upToDate"; progress = 0; downloadedBytes = 0; totalBytes = latest == null ? 0 : latest.size;
                         clearSavedRelease(); clearOwnedCache();
                     } else {
                         validateRelease(latest);
@@ -264,7 +261,7 @@ final class AppUpdateManager {
 
     private JSONArray fetchReleases() throws Exception {
         if (!allowsCheck(manualChecking, LocalOnlyMode.enabled(context))) throw new UpdateException("本地模式已暂停自动检查");
-        HttpURLConnection request = request(new URL(API_URL), "application/vnd.github+json");
+        HttpURLConnection request = request(new URL("https://api.github.com/repos/" + GithubReleaseUpdate.REPOSITORY + "/releases?per_page=100"), "application/vnd.github+json");
         connection = request;
         if (!allowsCheck(manualChecking, LocalOnlyMode.enabled(context))) { request.disconnect(); throw new UpdateException("本地模式已暂停自动检查"); }
         try {
@@ -332,10 +329,8 @@ final class AppUpdateManager {
     }
     static void validateRelease(GithubReleaseUpdate.Release release) throws Exception {
         if (release == null || release.size <= 0 || release.size > MAX_APK_BYTES || !release.sha256.matches("[a-f0-9]{64}")) throw new UpdateException("GitHub 安装包缺少有效的 SHA-256 或大小信息");
-        URI uri = new URI(release.downloadUrl);
-        if (!GithubReleaseUpdate.isTrustedDownloadUrl(release.downloadUrl) || !"github.com".equalsIgnoreCase(uri.getHost())
-                || !uri.getRawPath().startsWith("/EBG-bg/VutronMusic/releases/download/") || uri.getRawQuery() != null || uri.getRawFragment() != null)
-            throw new UpdateException("更新安装包必须来自本项目的 GitHub Release");
+        if (!GithubReleaseUpdate.hasValidLocation(release))
+            throw new UpdateException("更新安装包必须来自 VutronMusic-Android 的 GitHub Release，且版本与文件名一致");
     }
     static void verifyDownloadedFile(File file, String expectedSha256, long expectedSize) throws Exception {
         if (expectedSize <= 0 || expectedSize > MAX_APK_BYTES || expectedSha256 == null || !expectedSha256.matches("[a-f0-9]{64}")) throw new UpdateException("更新校验信息无效");

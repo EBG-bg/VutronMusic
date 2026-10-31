@@ -8,9 +8,9 @@ function readPreference(): boolean {
 
 export const localOnlyMode = ref(readPreference())
 
-export function setLocalOnlyPreference(enabled: boolean) {
+export function setLocalOnlyPreference(enabled: boolean, persist = true, manual = enabled) {
   localOnlyMode.value = enabled
-  try { localStorage.setItem(storageKey, String(enabled)) }
+  try { if (persist) localStorage.setItem(storageKey, String(manual)) }
   catch { /* Native preferences still retain the music network policy. */ }
 }
 

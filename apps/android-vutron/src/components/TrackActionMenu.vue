@@ -1,5 +1,6 @@
 <script setup lang="ts">
-import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue'
+import ThumbRange from './ThumbRange.vue'
+import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
 import { useLibraryManagement } from '../composables/libraryManagement'
 import { onlineTrackId } from '../stores/domains/neteaseLibrary'
 import { useAndroidShellStore } from '../stores/androidShell'
@@ -7,9 +8,11 @@ import { vutronPlugin, type VutronTrack } from '../platform/vutronPlugin'
 import { createLiveSettingWriter } from '../platform/liveSettingWrites'
 import OriginalIcon from './OriginalIcon.vue'
 import CollapsibleSettingsCard from './CollapsibleSettingsCard.vue'
+import { useModalFocus } from '../composables/modalFocus'
+import { actionDialog } from '../platform/actionDialog'
 
-const props = defineProps<{ track: VutronTrack }>()
-const emit = defineEmits<{ close: [] }>()
+const props = defineProps<{ track: VutronTrack; suspended?: boolean }>()
+const emit = defineEmits<{ close: []; comments: [track: VutronTrack] }>()
 const store = useAndroidShellStore()
 const management = useLibraryManagement()
 const cacheTrackId = computed(() => props.track.neteaseId || (!props.track.localUri && !props.track.localPath || props.track.cached ? props.track.id : 0))
@@ -34,7 +37,7 @@ function volumeIdentity(track: VutronTrack) {
   const uri = track.localUri?.trim() || track.localPath?.trim()
   const id = track.neteaseId ?? track.id
   if (id > 0 && (!uri || (track.neteaseId ?? 0) > 0)) return 'volume:track:id:' + id
-  return 'volume:local-uri:' + uri
+  return 'volume:local-uri:' + uri + (track.cueTrackNo ? ':' + track.cueOffsetMs + ':' + track.cueTrackNo : '')
 }
 type VolumeLane = { writer: ReturnType<typeof createLiveSettingWriter<number>>; lastValue?: number }
 const volumeLanes = new Map<string, VolumeLane>()
@@ -58,15 +61,7 @@ function volumeLane() {
 }
 
 function close() { emit('close') }
-function keyboard(event: KeyboardEvent) {
-  if (event.key === 'Escape') { event.preventDefault(); event.stopImmediatePropagation(); close(); return }
-  if (event.key !== 'Tab') return
-  const controls = Array.from(dialog.value?.querySelectorAll<HTMLElement>('button:not(:disabled),input:not(:disabled),summary') ?? [])
-    .filter(element => element.getClientRects().length > 0 && !element.closest('[inert]'))
-  const first = controls[0], last = controls.at(-1)
-  if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last?.focus() }
-  else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first?.focus() }
-}
+useModalFocus(dialog, { close, enabled: () => !props.suspended && !actionDialog.value, restore: false })
 
 async function action(kind: 'next' | 'append' | 'play' | 'cache') {
   if (busy.value) return
@@ -117,15 +112,16 @@ function volumeInput(event: Event) {
 }
 async function saveVolume() { await queueVolume(true)?.writer.flush() }
 watch(() => props.track, () => { volumeRead++; volumeEdit++; notice.value = ''; volume.value = volumeLanes.get(volumeIdentity(props.track))?.lastValue ?? 100 })
-onMounted(async () => { document.addEventListener('keydown', keyboard, true); if (canUseOnline.value) void store.loadLikedTracks(); await nextTick(); dialog.value?.querySelector<HTMLButtonElement>('button')?.focus({ preventScroll: true }) })
-onUnmounted(() => { mounted = false; volumeRead++; for (const lane of volumeLanes.values()) void lane.writer.flush(); document.removeEventListener('keydown', keyboard, true) })
+onMounted(() => { if (canUseOnline.value) void store.loadLikedTracks() })
+onUnmounted(() => { mounted = false; volumeRead++; for (const lane of volumeLanes.values()) void lane.writer.flush() })
 </script>
 
 <template>
-    <div class="track-action-layer" @click.self="close">
+    <div class="track-action-layer" :inert="suspended || Boolean(actionDialog)" @click.self="close">
       <section ref="dialog" class="track-action-menu" role="dialog" aria-modal="true" aria-label="歌曲操作">
         <header><div><h2>{{ track.name }}</h2><p>{{ track.artists?.join(' / ') || track.album || '歌曲操作' }}</p></div><button class="icon-button" type="button" aria-label="关闭歌曲菜单" @click="close"><OriginalIcon name="close" /></button></header>
         <div class="track-action-options">
+          <button v-if="canUseOnline" type="button" :disabled="busy" @click="emit('comments', track); close()"><OriginalIcon name="list" /><span>{{ $t('mobile.comments.title') }}</span></button>
           <button v-if="canUseOnline" type="button" :disabled="busy || store.onlineMutationBusy || store.onlineNeedsRefresh || !store.likedLoaded" @click="toggleLike"><OriginalIcon :name="store.isTrackLiked(track) ? 'heartSolid' : 'heart'" /><span>{{ store.likedLoaded ? $t(store.isTrackLiked(track) ? 'mobile.netease.unlike' : 'mobile.netease.like') : $t('mobile.netease.likeLoading') }}</span></button>
           <button v-if="canUseOnline" type="button" :disabled="busy || store.onlineMutationBusy || store.onlineNeedsRefresh" @click="addToPlaylist"><OriginalIcon name="plus" /><span>{{ $t('mobile.netease.addTo') }}</span></button>
           <button v-if="store.removableOnlinePlaylist(track)" type="button" :disabled="busy || store.onlineMutationBusy || store.onlineNeedsRefresh" @click="removeFromOnlinePlaylist"><OriginalIcon name="close" /><span>{{ $t('mobile.netease.remove') }}</span></button>
@@ -137,8 +133,10 @@ onUnmounted(() => { mounted = false; volumeRead++; for (const lane of volumeLane
           <button type="button" :disabled="busy" @click="action('play')"><OriginalIcon name="play" /><span>立即播放</span></button>
           <button type="button" :disabled="busy" @click="action('cache')"><OriginalIcon name="down" /><span>缓存这首歌曲</span></button>
         </div>
+        <p v-if="track.cueTrackNo" class="track-action-notice">{{ $t('mobile.advancedPlayback.cue', { count: track.cueTrackNo, name: track.cueAlbum }) }}</p>
+        <p v-if="track.cueWarning" class="track-action-notice">{{ track.cueWarning }}</p>
         <CollapsibleSettingsCard :key="track.id + ':' + (track.localUri ?? '')" class="track-menu-volume-card" section-id="track-menu-volume" title="单曲音量" :subtitle="`仅调整「${track.name}」`" :remember="false" @toggle="volumeToggle">
-          <form class="track-action-volume" @submit.prevent="saveVolume"><label>这首歌曲的音量<input :value="volume" type="range" min="0" max="100" step="1" aria-label="菜单歌曲音量" @input="volumeInput" @change="saveVolume" /></label><div><input :value="volume" type="number" min="0" max="100" step="1" inputmode="numeric" aria-label="菜单歌曲音量百分比" @input="volumeInput" @change="saveVolume" /><span>%</span><button class="secondary-button" type="submit">保存</button></div></form>
+          <form class="track-action-volume" @submit.prevent="saveVolume"><label>这首歌曲的音量<ThumbRange :value="volume" min="0" max="100" step="1" aria-label="菜单歌曲音量" @input="volumeInput" @change="saveVolume" /></label><div><input :value="volume" type="number" min="0" max="100" step="1" inputmode="numeric" aria-label="菜单歌曲音量百分比" @input="volumeInput" @change="saveVolume" /><span>%</span><button class="secondary-button" type="submit">保存</button></div></form>
         </CollapsibleSettingsCard>
         <Transition name="track-feedback" mode="out-in"><p v-if="notice" :key="notice" class="track-action-notice" role="status">{{ notice }}</p></Transition>
       </section>
@@ -162,8 +160,8 @@ header p { margin: 5px 0 0; color: var(--muted); font-size: 12px; overflow-wrap:
 .track-action-options small { display: block; margin-top: 4px; color: var(--muted); font-size: 11px; }
 .track-menu-volume-card { margin-top: 8px; padding: 10px 12px; box-shadow: none; background: var(--color-secondary-bg); }
 .track-action-volume { padding: 0; font-size: 13px; }
-.track-action-volume label, .track-action-volume label input { display: block; width: 100%; }
-.track-action-volume label input { margin-top: 10px; }
+.track-action-volume label { display: block; width: 100%; }
+.track-action-volume .thumb-range { margin-top: 4px; }
 .track-action-volume > div { display: flex; align-items: center; gap: 7px; margin-top: 10px; }
 .track-action-volume input[type=number] { min-width: 0; width: 72px; }
 .track-action-notice { margin: 10px 4px 0; color: var(--muted); font-size: 12px; }

@@ -4,6 +4,18 @@ import org.junit.Test;
 import static org.junit.Assert.*;
 
 public class LyricFrameClockTest {
+    @Test public void playbackRateChangesAndPausedClockRemainSynchronized() {
+        LyricFrameClock clock=new LyricFrameClock();
+        clock.update(1,1000,2000,true,10000,2000,2f);
+        assertEquals(2000,clock.positionAt(2500));
+        clock.update(1,2000,2500,true,10000,2500,.5f);
+        assertEquals(2250,clock.positionAt(3000));
+        clock.update(1,2250,3000,false,10000,3000,.5f);
+        assertEquals(2250,clock.positionAt(9000));
+        assertThrows(IllegalArgumentException.class,()->PlaybackTuning.checked(2.1));
+        assertThrows(IllegalArgumentException.class,()->PlaybackTuning.checked(Double.NaN));
+        assertEquals(1.25f,PlaybackTuning.checked(1.25),.0001f);
+    }
     @Test public void framesAdvanceBetweenThePlayersOneSecondSnapshots() {
         LyricFrameClock clock = new LyricFrameClock();
         clock.update(7, 1000, 2000, true, 10000, 2090);

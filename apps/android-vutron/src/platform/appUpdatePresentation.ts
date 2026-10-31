@@ -17,6 +17,7 @@ export function appUpdateSummary(state: VutronAppUpdateState): string {
     case 'checking': return t('mobile.updateStatus.checking')
     case 'available': return t('mobile.updates.found', { version: state.latestVersion ?? '' })
     case 'upToDate': return t('mobile.updateStatus.upToDate')
+    case 'noRelease': return t('mobile.updateStatus.noRelease')
     case 'downloading': return t('mobile.updateStatus.downloading', { progress: Math.round(state.progress) })
     case 'ready': return t('mobile.updateStatus.ready')
     case 'permissionRequired': return t('mobile.updateStatus.permission')

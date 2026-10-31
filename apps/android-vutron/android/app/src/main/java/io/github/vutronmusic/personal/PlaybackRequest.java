@@ -17,6 +17,9 @@ final class PlaybackRequest {
     private PlaybackRequest() { }
 
     static Intent prepare(Context context, JSONObject supplied, boolean autoPlay) throws Exception {
+        return prepare(context,supplied,autoPlay,null);
+    }
+    static Intent prepare(Context context, JSONObject supplied, boolean autoPlay, JSONObject prefetched) throws Exception {
         if (supplied == null || supplied.optLong("id") <= 0) throw new IOException("歌曲信息无效");
         JSONObject song = new JSONObject(supplied.toString());
         if (song.optString("trackVolumeKey", "").isEmpty()) {
@@ -33,6 +36,7 @@ final class PlaybackRequest {
             }
         }
         JSONObject location = null;
+        boolean usedPrefetchedSource = false;
         if (source.isEmpty()) {
             AudioCache.Entry cached = AudioCache.find(context, id);
             if (cached != null) {
@@ -41,7 +45,9 @@ final class PlaybackRequest {
                         .put("playbackFormat", cached.format).put("playbackLossless", cached.lossless)
                         .put("playbackCached", true);
             } else {
-                location = PlaybackSourceResolver.resolve(context, id);
+                LocalOnlyMode.requireOnline(context);
+                location = prefetched == null ? PlaybackSourceResolver.resolve(context, id) : prefetched;
+                usedPrefetchedSource = prefetched != null;
                 source = location.getString("url");
                 song.put("playbackSource", location.optString("source", "netease"))
                         .put("playbackBitrate", location.optLong("br", location.optLong("bitrate", 0)))
@@ -68,6 +74,7 @@ final class PlaybackRequest {
                 .putExtra("title", song.optString("name", BuildConfig.APP_DISPLAY_NAME))
                 .putExtra("artist", artistText(song)).putExtra("coverUrl", cover)
                 .putExtra("track", song.toString()).putExtra("autoPlay", autoPlay)
+                .putExtra("usedPrefetchedSource", usedPrefetchedSource)
                 .putExtra("cacheLocation", location == null ? "" : location.toString())
                 .putExtra("sourceHeaders", headers == null ? "{}" : headers.toString());
     }

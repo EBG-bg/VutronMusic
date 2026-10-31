@@ -9,7 +9,7 @@ import { isNewerAppVersion } from './appUpdatePresentation'
 export const appUpdatesSupported = Capacitor.isNativePlatform()
 export const appUpdateState = reactive<VutronAppUpdateState>({
   currentVersion: buildInfo.version, comparisonVersion: buildInfo.comparisonVersion, currentVersionCode: 0, autoCheck: false, status: 'idle',
-  releaseUrl: 'https://github.com/EBG-bg/VutronMusic/releases', notes: '', progress: 0,
+  releaseUrl: 'https://github.com/EBG-bg/VutronMusic-Android/releases', notes: '', progress: 0,
   downloadedBytes: 0, totalBytes: 0, error: '', checkedAt: 0, canInstall: false
 })
 export const appUpdateBusy = computed(() => appUpdateState.status === 'checking' || appUpdateState.status === 'downloading')

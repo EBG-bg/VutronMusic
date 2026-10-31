@@ -1,7 +1,7 @@
 {
   "product": "Vutron Music - Mobile",
-  "release": "1.0.1",
-  "reviewDate": "2026-10-26",
+  "release": "1.0.2",
+  "reviewDate": "2026-10-31",
   "scope": "Installed frontend modules, embedded Node source tree, resolved Android runtime graph and retained JNI binaries; build-only dependencies are not asserted to ship.",
   "packages": [
     {

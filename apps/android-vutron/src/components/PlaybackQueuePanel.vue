@@ -1,11 +1,15 @@
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed, ref } from 'vue'
+import { useModalFocus } from '../composables/modalFocus'
+import { actionDialog } from '../platform/actionDialog'
 import { useAndroidShellStore } from '../stores/androidShell'
 import type { VutronTrack } from '../platform/vutronPlugin'
 import OriginalIcon from './OriginalIcon.vue'
 import TrackListPager from './TrackListPager.vue'
 import { useProgressiveTracks } from '../composables/libraryPresentation'
 const store = useAndroidShellStore()
+const panel = ref<HTMLElement>()
+useModalFocus(panel, { close: () => { store.queueOpen = false }, open: () => store.queueOpen, enabled: () => !actionDialog.value })
 function keyedTracks(tracks: VutronTrack[]) {
   const occurrences = new Map<string, number>()
   return tracks.map((track, index) => {
@@ -23,7 +27,7 @@ const { visible: visiblePlaylistTracks, hasMore: morePlaylistTracks, showMore: s
 <template>
   <Transition name="queue-sheet" :duration="250">
     <div v-if="store.queueOpen" class="queue-layer" @click.self="store.queueOpen = false">
-      <section class="queue-panel" role="dialog" aria-modal="true" :aria-label="$t('mobile.player.queue')">
+      <section ref="panel" class="queue-panel" role="dialog" aria-modal="true" :aria-label="$t('mobile.player.queue')" tabindex="-1" :inert="Boolean(actionDialog)">
         <header><div><h2>{{ $t('mobile.player.queue') }}</h2><small>{{ $t('mobile.common.tracks', { count: store.playbackQueue.tracks.length }) }} · {{ [$t('mobile.player.listLoop'), $t('mobile.player.singleLoop'), $t('mobile.player.shuffle')][store.playbackQueue.mode] }}</small></div><button class="icon-button" type="button" :aria-label="$t('mobile.player.closeQueue')" @click="store.queueOpen = false"><OriginalIcon name="close" /></button></header>
         <div class="queue-scroll">
           <h3>{{ $t('mobile.common.playing') }}</h3>

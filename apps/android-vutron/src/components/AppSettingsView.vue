@@ -12,6 +12,8 @@ import UserBackupSettings from './UserBackupSettings.vue'
 import CollapsibleSettingsCard from './CollapsibleSettingsCard.vue'
 import LyricColorPicker from './LyricColorPicker.vue'
 import LyricOffsetControl from './LyricOffsetControl.vue'
+import PlaybackAdvancedSettings from './PlaybackAdvancedSettings.vue'
+import ThumbRange from './ThumbRange.vue'
 
 const store = useAndroidShellStore()
 const emit = defineEmits<{ requestLogin: []; localMode: []; openOffline: [] }>()
@@ -38,7 +40,8 @@ function setSleepTimerFromInput() {
         <div class="section-heading"><div><div class="eyebrow">PREFERENCES</div><h2>{{ $t('nav.settings') }}</h2><p class="setting-note">{{ buildInfo.displayName }} · {{ buildInfo.version }}</p></div></div>
         <AppearanceSettings />
         <LanguageSettings />
-        <section v-if="store.onlineAvailable" class="settings-card account-settings">
+        <PlaybackAdvancedSettings />
+        <section v-if="store.loggedIn" class="settings-card account-settings">
           <div class="settings-avatar">{{ store.profile?.nickname?.slice(0, 1) || 'V' }}</div>
           <div class="settings-account-copy"><b>{{ store.profile?.nickname }}</b><small>网易云音乐账号</small></div>
           <button type="button" class="text-button" @click="store.logout">退出</button>
@@ -48,7 +51,7 @@ function setSleepTimerFromInput() {
           <div class="settings-account-copy"><b>{{ $t('mobile.login.localEntry') }}</b><small>本地音乐与已有缓存无需登录</small></div>
           <button type="button" class="text-button" @click="emit('requestLogin')">登录网易云</button>
         </section>
-        <button v-if="store.onlineAvailable" type="button" class="wide-outline-button" @click="emit('localMode')">切换为仅本地模式</button>
+        <section class="settings-card"><div class="settings-detail"><span>{{ $t('mobile.network.manualSwitch') }}</span><button class="switch" :class="{ on: store.manualLocalOnly }" type="button" role="switch" :aria-checked="store.manualLocalOnly" :aria-label="$t('mobile.network.manualSwitch')" :disabled="store.localModeLoading" @click="store.manualLocalOnly ? store.useAutomaticMode() : emit('localMode')"><i></i></button></div><p class="setting-note">{{ $t(store.manualLocalOnly ? 'mobile.network.manualHint' : 'mobile.network.autoModeHint') }}</p><p class="setting-note" role="status">{{ $t(store.manualLocalOnly ? 'mobile.network.manualOffline' : store.localOnly ? !store.networkConnected ? 'mobile.network.automaticOffline' : 'mobile.network.localGuest' : 'mobile.network.online') }}</p></section>
         <CollapsibleSettingsCard section-id="sources" title="音源与音质">
           <template #heading><span class="settings-icon violet"><OriginalIcon name="explore" /></span><div><h3>音源与音质</h3><p>自动匹配其他音源，并优先选择最高音质</p></div></template>
           <label class="settings-detail"><span>网易云不可用时自动寻找其它音源</span><input type="checkbox" :checked="store.autoMatchSources" @change="store.setAutoMatchSources(($event.target as HTMLInputElement).checked)" /></label>
@@ -70,11 +73,11 @@ function setSleepTimerFromInput() {
           <div class="storage-meter"><span :style="{ width: `${cacheUsedPercent}%` }"></span></div>
           <label class="setting-range"><span>容量上限</span><b>{{ store.cacheCapacityMb }} MB</b></label>
           <div class="cache-input-row"><input v-model.number="store.cacheCapacityMb" type="number" min="256" max="10240" inputmode="numeric" aria-label="音频缓存容量 MiB" /><button class="secondary-button" type="button" @click="store.setCacheCapacity()">保存上限</button></div>
-          <input class="settings-slider" type="range" min="256" max="10240" step="256" :value="store.cacheCapacityMb" @input="updateCacheCapacity" @change="store.setCacheCapacity" />
+          <ThumbRange class="settings-slider" min="256" max="10240" step="256" :value="store.cacheCapacityMb" aria-label="音频缓存容量" @input="updateCacheCapacity" @change="store.setCacheCapacity" />
           <div class="settings-detail"><span>播放时保存歌曲，供离线收听</span><button class="text-button danger-text" type="button" @click="store.clearCache">清空</button></div>
           <button class="wide-outline-button" type="button" @click="emit('openOffline')">查看离线歌曲</button>
           <label class="setting-range"><span>封面缓存上限</span><b>{{ store.artworkCacheCapacityMb }} MB</b></label>
-          <input class="settings-slider" type="range" min="32" max="1024" step="32" :value="store.artworkCacheCapacityMb" @input="updateArtworkCacheCapacity" @change="store.setArtworkCacheCapacity" />
+          <ThumbRange class="settings-slider" min="32" max="1024" step="32" :value="store.artworkCacheCapacityMb" aria-label="封面缓存容量" @input="updateArtworkCacheCapacity" @change="store.setArtworkCacheCapacity" />
         </CollapsibleSettingsCard>
         <CollapsibleSettingsCard section-id="timer" title="睡眠定时">
           <template #heading><span class="settings-icon coral"><OriginalIcon name="timer" /></span><div><h3>睡眠定时</h3><p>{{ store.sleepTimerRemainingMs > 0 ? `将在 ${store.sleepTimerLabel} 后暂停` : '设定时间后自动暂停播放' }}</p></div></template>
@@ -94,7 +97,7 @@ function setSleepTimerFromInput() {
           </CollapsibleSettingsCard>
           <div class="overlay-options">
             <label>歌词大小 <b>{{ store.overlaySettings.fontSize }} sp</b></label>
-            <input class="settings-slider" type="range" min="16" max="34" :value="store.overlaySettings.fontSize" @input="store.updateOverlayField('fontSize', Number(($event.target as HTMLInputElement).value))" @change="store.flushLiveSettings()" />
+            <ThumbRange class="settings-slider" min="16" max="34" :value="store.overlaySettings.fontSize" aria-label="歌词大小" @input="store.updateOverlayField('fontSize', Number(($event.target as HTMLInputElement).value))" @change="store.flushLiveSettings()" />
             <label class="settings-detail compact"><span>同步显示译文</span><input type="checkbox" :checked="store.overlaySettings.translation" @change="store.updateOverlayField('translation', ($event.target as HTMLInputElement).checked)" /></label>
           <label class="settings-detail compact"><span>显示下一句</span><input type="checkbox" :checked="store.overlaySettings.nextLine" @change="store.updateOverlayField('nextLine', ($event.target as HTMLInputElement).checked)" /></label>
           <label class="settings-detail compact"><span>锁定歌词位置</span><input type="checkbox" :checked="store.overlaySettings.locked" @change="store.updateOverlayField('locked', ($event.target as HTMLInputElement).checked)" /></label>
@@ -102,7 +105,7 @@ function setSleepTimerFromInput() {
           <p class="setting-note">默认锁定后允许点击下方，系统会降低窗口整体不透明度，调色数值保留。此前保存的完整不透明设置会保留，取消此项即可改为穿透优先。个别应用仍不接受点击时，可在歌词通知中临时隐藏 30 秒。</p>
             <label class="settings-detail compact"><span>歌词阴影</span><input type="checkbox" :checked="store.overlaySettings.shadowEnabled" @change="store.updateOverlayField('shadowEnabled', ($event.target as HTMLInputElement).checked)" /></label>
           <label>阴影模糊 <b>{{ store.overlaySettings.shadowRadius }} dp</b></label>
-          <input class="settings-slider" type="range" min="0" max="8" :value="store.overlaySettings.shadowRadius" @input="store.updateOverlayField('shadowRadius', Number(($event.target as HTMLInputElement).value))" @change="store.flushLiveSettings()" />
+          <ThumbRange class="settings-slider" min="0" max="8" :value="store.overlaySettings.shadowRadius" aria-label="阴影模糊" @input="store.updateOverlayField('shadowRadius', Number(($event.target as HTMLInputElement).value))" @change="store.flushLiveSettings()" />
           <LyricOffsetControl :model-value="store.overlaySettings.currentLyricOffsetMs ?? 0" :track-key="[store.playback.trackId, store.playback.track?.localUri ?? '', store.playback.track?.localPath ?? '', store.playback.track?.neteaseId ?? ''].join('|')" :disabled="!store.playback.trackId" @update:model-value="store.updateCurrentLyricOffset" @commit="store.flushLiveSettings()" />
           </div>
         </CollapsibleSettingsCard>

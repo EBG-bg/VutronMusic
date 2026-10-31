@@ -62,6 +62,29 @@ public class LocalOnlyModeTest {
         assertThrows(IOException.class, () -> LocalOnlyMode.save(preferences(new HashMap<>(), false), true));
     }
 
+    @Test public void automaticOfflineSurvivesRestartAsAutomaticAndReconnectsWithoutChangingAccountSettings() throws Exception {
+        Map<String,Object> saved = new HashMap<>(); saved.put("account_retained", true);
+        LocalOnlyMode.save(preferences(saved,true), LocalOnlyMode.effective(false,false,true), false);
+        SharedPreferences restarted = preferences(new HashMap<>(saved),true);
+        assertTrue(LocalOnlyMode.enabled(restarted)); assertFalse(LocalOnlyMode.manual(restarted));
+        assertFalse(LocalOnlyMode.effective(LocalOnlyMode.manual(restarted),true,true));
+        assertEquals(true,saved.get("account_retained"));
+        LocalOnlyMode.save(preferences(saved,true),false,false);
+        assertFalse(LocalOnlyMode.enabled(preferences(saved,true)));
+    }
+    @Test public void onlyAnExplicitManualChoiceStaysOfflineWhenTheNetworkReturns() throws Exception {
+        Map<String,Object> saved = new HashMap<>();
+        LocalOnlyMode.save(preferences(saved,true),true,true);
+        assertTrue(LocalOnlyMode.effective(LocalOnlyMode.manual(preferences(saved,true)),true,true));
+        LocalOnlyMode.save(preferences(saved,true),false,false);
+        assertFalse(LocalOnlyMode.manual(preferences(saved,true)));
+        assertTrue(LocalOnlyMode.effective(false,true,false));
+    }
+    @Test public void wifiWithoutValidatedInternetIsNotReportedAsAnOnlineConnection() {
+        assertFalse(MusicConnectivity.usable(true,false)); assertFalse(MusicConnectivity.usable(false,true));
+        assertFalse(MusicConnectivity.usable(false,false)); assertTrue(MusicConnectivity.usable(true,true));
+    }
+
     @Test public void localModeCannotInvokeOfficialOrEmbeddedProviders() {
         AtomicInteger official = new AtomicInteger();
         AtomicInteger embedded = new AtomicInteger();

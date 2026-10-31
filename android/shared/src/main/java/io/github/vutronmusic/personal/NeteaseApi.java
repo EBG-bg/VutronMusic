@@ -74,6 +74,7 @@ public final class NeteaseApi {
     }
 
     private void requireOnline() throws IOException {
+        if(Thread.currentThread().isInterrupted()) throw new java.io.InterruptedIOException("音乐请求已取消");
         if (!onlineAllowed.getAsBoolean()) throw new IOException("当前为本地模式，音乐网络请求已关闭");
     }
 
@@ -452,6 +453,63 @@ public final class NeteaseApi {
         catch (IOException unavailable) { return new JSONObject(); }
     }
 
+    /** Protocol reference: API 4.36.1 module/comment{,_new,_like,_floor}.js. No plugin runtime. */
+    public JSONObject comments(String target, String id, int sort, int page, String cursor) throws IOException {
+        if (sort != 99 && sort != 2 && sort != 3 || page < 1 || page > 100000) throw new IOException("评论分页参数无效");
+        String position = sort == 99 ? String.valueOf((page-1)*30) : sort == 2 ? "normalHot#" + (page-1)*30 : safeCursor(cursor);
+        JSONObject response = request("/api/v2/resource/comments", json("threadId", commentThread(target,id), "pageNo",page,
+                "pageSize",30,"showInner",true,"cursor",position,"sortType",sort), false);
+        commentSuccess(response);
+        return CommentData.page(response.optJSONObject("data"), page+1, sort, false);
+    }
+    public JSONObject commentFloor(String target, String id, String parentId, String time) throws IOException {
+        JSONObject response = request("/api/resource/comment/floor/get", json("threadId",commentThread(target,id),
+                "parentCommentId",commentId(parentId),"time",safeCursor(time).equals("0") ? "-1" : safeCursor(time),"limit",30),true);
+        commentSuccess(response);
+        return CommentData.page(response.optJSONObject("data"),1,3,true);
+    }
+    public void likeComment(String target, String id, String commentId, boolean liked) throws IOException {
+        JSONObject response = request("/api/v1/comment/"+(liked?"like":"unlike"),
+                json("threadId",commentThread(target,id),"commentId",commentId(commentId)),true);
+        commentSuccess(response);
+    }
+    public void submitComment(String target, String id, String action, String content, String parentId) throws IOException {
+        if (!"add".equals(action) && !"reply".equals(action) && !"delete".equals(action)) throw new IOException("评论操作无效");
+        JSONObject data = json("threadId",commentThread(target,id));
+        try {
+            if (!"delete".equals(action)) {
+                String text = content == null ? "" : content.trim();
+                if (text.isEmpty() || text.codePointCount(0,text.length())>140) throw new IOException("评论应为 1–140 个字");
+                data.put("content",text);
+            }
+            if (!"add".equals(action)) data.put("commentId",commentId(parentId));
+        } catch (JSONException invalid) { throw new IOException("评论参数无效",invalid); }
+        commentSuccess(request("/api/resource/comments/"+action,data,true));
+    }
+    static String commentThread(String type,String id) throws IOException {
+        String prefix;
+        switch (type) { case "track":prefix="R_SO_4_";break;case "mv":prefix="R_MV_5_";break;
+            case "playlist":prefix="A_PL_0_";break;case "album":prefix="R_AL_3_";break;default:throw new IOException("评论类型无效"); }
+        return prefix+commentId(id);
+    }
+    static String commentId(String id) throws IOException {
+        if (id == null || !id.matches("[1-9][0-9]{0,18}") || new java.math.BigInteger(id).bitLength()>63) throw new IOException("评论 ID 无效");
+        return id;
+    }
+    private static String safeCursor(String cursor) throws IOException {
+        if (cursor == null || cursor.isEmpty()) return "0";
+        if (cursor.length()>100 || !cursor.matches("[0-9A-Za-z_#.:=-]+")) throw new IOException("评论游标无效");
+        return cursor;
+    }
+    public static final class CommentFailure extends IOException {
+        public final int code;
+        CommentFailure(int code,String message) { super(message);this.code=code; }
+    }
+    private static void commentSuccess(JSONObject response) throws IOException {
+        int code=response.optInt("code",0);
+        if (code!=200) throw new CommentFailure(code,code==301 || code==401 ? "登录已失效，请重新登录网易云" : apiMessage(response,"评论请求失败（"+code+"）"));
+    }
+
     public JSONObject songUrl(long id) throws IOException {
         if (id <= 0) throw new IOException("歌曲 ID 无效");
         // Keep the official request aligned with the desktop plugin.  The
@@ -614,6 +672,8 @@ public final class NeteaseApi {
                 byte[] buffer = new byte[8192];
                 int count;
                 while ((count = input.read(buffer)) != -1) {
+                    requireOnline();
+                    if (Thread.currentThread().isInterrupted()) throw new java.io.InterruptedIOException("音乐请求已取消");
                     if (output.size() + count > MAX_RESPONSE) throw new IOException("音乐接口响应超过大小限制");
                     output.write(buffer, 0, count);
                 }
@@ -625,8 +685,9 @@ public final class NeteaseApi {
             } catch (JSONException malformed) {
                 throw new IOException("音乐接口未返回有效数据（HTTP " + status + "）", malformed);
             }
+            if (status == 401 || result.optInt("code") == 301 || result.optInt("code") == 401)
+                throw new CommentFailure(status == 401 ? 401 : result.optInt("code"),"登录已失效，请重新登录网易云");
             if (status >= 400) throw new IOException(apiMessage(result, "音乐接口请求失败") + "（HTTP " + status + "）");
-            if (result.optInt("code") == 301) throw new IOException("登录已失效，请重新扫码或导入 Cookie");
             return result;
         } catch (JSONException | GeneralSecurityException exception) {
             throw new IOException("音乐请求编码失败", exception);

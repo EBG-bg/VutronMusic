@@ -393,7 +393,7 @@ public final class AndroidLyricOverlayService extends Service {
         long now = SystemClock.elapsedRealtime();
         PowerManager power = getSystemService(PowerManager.class);
         interactive = power == null || power.isInteractive();
-        clock.update(id, storedPosition, state.getLong("positionElapsedRealtime", 0L), playing, duration, now);
+        clock.update(id, storedPosition, state.getLong("positionElapsedRealtime", 0L), playing, duration, now,state.getFloat("playbackRate",1f));
         lastPlaying = playing;
         lyricDuration = duration;
 

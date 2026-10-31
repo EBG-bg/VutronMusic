@@ -74,7 +74,7 @@ final class PlaylistCache {
         synchronized (LOCK) {
             JSONObject document = readDocument(context, userId);
             JSONArray rows = new JSONArray();
-            if (values != null) for (JSONObject value : values) rows.put(copy(value));
+            if (values != null) for (JSONObject value : values) if (value != null && !excluded(document, value.optLong("id"))) rows.put(copy(value));
             try { document.put("playlists", rows).put("updatedAt", System.currentTimeMillis()); }
             catch (JSONException invalid) { throw new IOException("Cannot encode playlist snapshot", invalid); }
             writeDocument(context, userId, document);
@@ -112,6 +112,10 @@ final class PlaylistCache {
     }
 
     static void saveTracks(Context context, long userId, long playlistId, List<JSONObject> values, JSONObject suppliedPlaylist) throws IOException {
+        saveTracks(context, userId, playlistId, values, suppliedPlaylist, false);
+    }
+
+    static void saveTracks(Context context, long userId, long playlistId, List<JSONObject> values, JSONObject suppliedPlaylist, boolean explicitlyRestore) throws IOException {
         if (userId <= 0 || playlistId <= 0) return;
         JSONArray rows = new JSONArray();
         if (values != null) for (JSONObject value : values) rows.put(copy(value));
@@ -119,9 +123,11 @@ final class PlaylistCache {
         try { snapshot = new JSONObject().put("version", 1).put("userId", userId).put("playlistId", playlistId)
                 .put("updatedAt", System.currentTimeMillis()).put("tracks", rows); }
         catch (JSONException invalid) { throw new IOException("Cannot encode playlist track snapshot", invalid); }
-        writeAtomic(trackFile(context, userId, playlistId), snapshot, MAX_PLAYLIST_BYTES);
         synchronized (LOCK) {
             JSONObject document = readDocument(context, userId);
+            if (!explicitlyRestore && excluded(document, playlistId)) return;
+            writeAtomic(trackFile(context, userId, playlistId), snapshot, MAX_PLAYLIST_BYTES);
+            if (explicitlyRestore) exclude(document, playlistId, false);
             JSONObject recommendations = readAtomic(recommendationFile(context, userId), MAX_BYTES);
             JSONObject known = findPlaylist(document.optJSONArray("playlists"), playlistId);
             JSONObject recommended = findPlaylist(recommendations == null ? null : recommendations.optJSONArray("playlists"), playlistId);
@@ -145,7 +151,7 @@ final class PlaylistCache {
         if (userId <= 0) return result;
         try {
             JSONObject document = readDocument(context, userId);
-            JSONArray rows = mergedPlaylists(document.optJSONArray("playlists"), document.optJSONArray("visitedPlaylists"));
+            JSONArray rows = visiblePlaylists(document);
             if (rows != null) for (int i = 0; i < rows.length(); i++) {
                 JSONObject row = rows.optJSONObject(i);
                 if (row != null) result.add(decorate(context, row));
@@ -158,6 +164,7 @@ final class PlaylistCache {
         List<JSONObject> result = new ArrayList<>();
         if (userId <= 0 || playlistId <= 0) return result;
         try {
+            if (excluded(readDocument(context, userId), playlistId)) return result;
             JSONObject snapshot = readAtomic(trackFile(context, userId, playlistId), MAX_PLAYLIST_BYTES);
             JSONArray rows = snapshot == null ? null : snapshot.optJSONArray("tracks");
             if (rows != null) for (int i = 0; i < rows.length(); i++) {
@@ -170,7 +177,7 @@ final class PlaylistCache {
 
     static boolean hasTrackSnapshot(Context context, long userId, long playlistId) {
         if (userId <= 0 || playlistId <= 0) return false;
-        try { return validTrackSnapshot(readAtomic(trackFile(context, userId, playlistId), MAX_PLAYLIST_BYTES), userId, playlistId); }
+        try { return !excluded(readDocument(context, userId), playlistId) && validTrackSnapshot(readAtomic(trackFile(context, userId, playlistId), MAX_PLAYLIST_BYTES), userId, playlistId); }
         catch (IOException unavailable) { return false; }
     }
 
@@ -189,6 +196,28 @@ final class PlaylistCache {
             }
         }
         return result;
+    }
+
+    static JSONArray visiblePlaylists(JSONObject document) {
+        JSONArray result = new JSONArray();
+        JSONArray rows = mergedPlaylists(document.optJSONArray("playlists"), document.optJSONArray("visitedPlaylists"));
+        for (int i = 0; i < rows.length(); i++) {
+            JSONObject row = rows.optJSONObject(i);
+            if (row != null && !excluded(document, row.optLong("id"))) result.put(row);
+        }
+        return result;
+    }
+    static boolean excluded(JSONObject document, long playlistId) {
+        JSONArray ids = document.optJSONArray("excludedPlaylistIds");
+        for (int i = 0; ids != null && i < ids.length(); i++) if (ids.optLong(i) == playlistId) return true;
+        return false;
+    }
+    static void exclude(JSONObject document, long playlistId, boolean excluded) throws IOException {
+        JSONArray ids = document.optJSONArray("excludedPlaylistIds"), updated = new JSONArray();
+        for (int i = 0; ids != null && i < ids.length(); i++) if (ids.optLong(i) > 0 && ids.optLong(i) != playlistId) updated.put(ids.optLong(i));
+        if (excluded) updated.put(playlistId);
+        try { document.put("excludedPlaylistIds", updated); }
+        catch (JSONException invalid) { throw new IOException("无法保存缓存歌单移除记录", invalid); }
     }
 
     static JSONObject playlistMetadata(long playlistId, int trackCount, JSONObject... candidates) throws IOException {
@@ -229,9 +258,16 @@ final class PlaylistCache {
     }
 
     static void removePlaylist(Context context, long userId, long playlistId) throws IOException {
+        removePlaylist(context, userId, playlistId, false);
+    }
+    static void removeCachedPlaylist(Context context, long userId, long playlistId) throws IOException {
+        removePlaylist(context, userId, playlistId, true);
+    }
+    private static void removePlaylist(Context context, long userId, long playlistId, boolean excludeFromAutomaticCache) throws IOException {
         if (userId <= 0 || playlistId <= 0) throw new IOException("歌单缓存标识无效");
         synchronized (LOCK) {
             JSONObject document = readDocument(context, userId);
+            if (excludeFromAutomaticCache) exclude(document, playlistId, true);
             try {
                 for (String key : new String[]{"playlists", "visitedPlaylists"}) {
                     JSONArray kept = new JSONArray(), rows = document.optJSONArray(key);
@@ -241,6 +277,7 @@ final class PlaylistCache {
             } catch (JSONException invalid) { throw new IOException("删除歌单缓存索引失败", invalid); }
             writeDocument(context, userId, document);
             new AtomicFile(trackFile(context, userId, playlistId)).delete();
+            if (trackFile(context, userId, playlistId).exists() || new File(trackFile(context, userId, playlistId) + ".bak").exists()) throw new IOException("歌单资料文件未能清理，请重试");
         }
     }
 

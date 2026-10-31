@@ -8,6 +8,13 @@ import java.util.Collections;
 import static org.junit.Assert.*;
 
 public class LocalPlaybackResolverTest {
+    @Test public void cueCandidatesKeepSegmentAndRejectSameFileAmbiguity() throws Exception {
+        JSONObject one=local("Same Title","Original Singer","Original Album",180000,"content://music/cue")
+                .put("cueTrackNo",1).put("cueOffsetMs",10000).put("cueDurationMs",180000);
+        JSONObject result=match(one);assertEquals(10000,result.getLong("cueOffsetMs"));
+        JSONObject two=new JSONObject(one.toString()).put("cueTrackNo",2).put("cueOffsetMs",190000);
+        assertNull(LocalPlaybackResolver.match(online(),Arrays.asList(one,two)));
+    }
     private JSONObject online() throws Exception {
         return new JSONObject().put("id", 123).put("name", "Same Title")
                 .put("artists", new JSONArray().put("Original Singer")).put("album", "Original Album")

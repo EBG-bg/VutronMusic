@@ -78,6 +78,13 @@ test('the actual queue component renders at most eighty playlist and eighty inse
       if (name === 'vue') return vue
       if (name === '../stores/androidShell') return { useAndroidShellStore: () => store }
       if (name === '../composables/libraryPresentation') return libraryHelpers()
+      if (name === '../platform/actionDialog') return { actionDialog: vue.shallowRef() }
+      if (name === '../composables/modalFocus') {
+        const helper = { exports: {} }
+        const source = ts.transpileModule(fs.readFileSync(path.resolve(__dirname, '../src/composables/modalFocus.ts'), 'utf8'), { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 } }).outputText
+        vm.runInNewContext(source, { module: helper, exports: helper.exports, require: () => vue })
+        return helper.exports
+      }
       if (name.endsWith('OriginalIcon.vue')) return { default: { render: () => vue.h('span') }, __esModule: true }
       if (name.endsWith('.vue')) return { default: component(path.resolve(path.dirname(filename), name)), __esModule: true }
       throw new Error('Unexpected queue dependency: ' + name)

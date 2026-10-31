@@ -19,6 +19,29 @@ test('an unrelated local numeric ID cannot delete an online cache with the same 
   assert.equal(await state.api.deleteCachedTrack({ id: 12, name: 'Local', localUri: 'content://music/a' }), false); assert.equal(deleted, false);
   assert.equal(await state.api.deleteCachedTrack({ id: 12, name: 'Cache', localUri: 'file:///cache/a', cached: true }), true); assert.equal(deleted, true); assert.deepEqual(state.calls, ['cache']);
 });
+test('offline playlist deletion targets only its cache owner and leaves current audio and queue intact', async () => {
+  let payload; const playback = { trackId: 12, playing: true }, queue = [1,2]; let state;
+  state = management({ deleteCachedPlaylist: async value => { payload=value; return { removed:true }; } }, undefined, {
+    playback, playbackQueue:queue, removeCachedPlaylistView(id) { state.calls.push('view:'+id); }, async loadOfflinePlaylists() { state.calls.push('offline'); }
+  });
+  assert.equal(await state.api.deleteOfflinePlaylist({id:71,name:'Saved',cacheOwnerId:123}),true);
+  assert.equal(payload.playlistId,71); assert.equal(payload.userId,123); assert.deepEqual(state.calls,['view:71','offline','cache']);
+  assert.equal(state.store.playback,playback); assert.equal(state.store.playbackQueue,queue); assert.equal(playback.playing,true);
+});
+test('cancelled or failed offline playlist deletion preserves the visible snapshot', async () => {
+  let writes=0; const cancelled=management({deleteCachedPlaylist:async()=>{writes++;return {removed:true};}},async()=> 'cancel');
+  assert.equal(await cancelled.api.deleteOfflinePlaylist({id:71,name:'Saved'}),false); assert.equal(writes,0);
+  const failed=management({deleteCachedPlaylist:async()=>{throw new Error('cache write failure');}});
+  assert.equal(await failed.api.deleteOfflinePlaylist({id:71,name:'Saved'}),false); assert.deepEqual(failed.calls,[]); assert.equal(failed.store.error,'cache write failure');
+});
+test('offline playlist confirmation cannot be queued twice by repeated clicks', async () => {
+  let answer,questions=0,writes=0; const pending=new Promise(resolve=>answer=resolve);
+  const state=management({deleteCachedPlaylist:async()=>{writes++;return {removed:false};}},()=>{questions++;return pending;});
+  const first=state.api.deleteOfflinePlaylist({id:71,name:'Saved'});
+  assert.equal(await state.api.deleteOfflinePlaylist({id:71,name:'Saved'}),false); assert.equal(questions,1);
+  answer('confirm'); await first; assert.equal(writes,1); assert.equal(state.busy.value,false);
+});
+
 test('local removal requires confirmation and refreshes library and queue together', async () => {
   let payload; const state = management({ manageLocalLibrary: async value => { payload = value; return { changed: true }; } });
   const track = { id: 3, name: 'Local', localUri: 'content://music/a', localFolderId: 'folder:a' };

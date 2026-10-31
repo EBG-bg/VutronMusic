@@ -12,17 +12,24 @@ import java.util.*;
 final class LibraryBackup {
     static final String GENERATOR = "vutron-mobile-backup";
     static final int MAX_BYTES = 8 * 1024 * 1024;
-    private static final String[] PREFS = {"lyric_overlay", "playback_volume", "audio_cache_settings", "artwork_cache_settings", "audio_sources", "vutron_playback"};
+    static final int MAX_STORE_BYTES = 64 * 1024 * 1024;
+    private static final String[] PREFS = {"lyric_overlay", "playback_volume", "audio_cache_settings", "artwork_cache_settings", "audio_sources", "vutron_playback", "playback_tuning"};
     private static final Set<String> LYRIC_BOOLEANS = new HashSet<>(Arrays.asList("locked", "touch_passthrough_priority", "translation", "wifi_validation", "next_line", "estimated_word_timing", "shadow_enabled"));
     private static final Set<String> LYRIC_INTS = new HashSet<>(Arrays.asList("font_size", "played_color", "unplayed_color", "background_color", "shadow_color", "shadow_radius"));
     private LibraryBackup() { }
     private static File file(Context c) { return new File(c.getFilesDir(), "restored-playlists.json"); }
 
     static JSONObject read(InputStream input) throws Exception {
+        return readLimited(input,MAX_BYTES,"备份文件超过 8 MiB");
+    }
+    static JSONObject readStore(InputStream input) throws Exception {
+        return readLimited(input,MAX_STORE_BYTES,"本机恢复资料超过 64 MiB，请保留原文件并联系维护者处理");
+    }
+    private static JSONObject readLimited(InputStream input,int limit,String message) throws Exception {
         if (input == null) throw new IOException("无法打开备份文件");
         try (InputStream stream = input; ByteArrayOutputStream output = new ByteArrayOutputStream()) {
             byte[] buffer = new byte[8192]; int count;
-            while ((count = stream.read(buffer)) != -1) { if (output.size() + count > MAX_BYTES) throw new IOException("备份文件超过 8 MiB"); output.write(buffer, 0, count); }
+            while ((count = stream.read(buffer)) != -1) { if (output.size() + count > limit) throw new IOException(message); output.write(buffer, 0, count); }
             return new JSONObject(output.toString(StandardCharsets.UTF_8.name()));
         }
     }
@@ -45,6 +52,11 @@ final class LibraryBackup {
         JSONObject result = new JSONObject().put("name", row.optString("name")).put("artists", names)
                 .put("album", album == null ? row.optString("album", "") : album.optString("name"))
                 .put("duration", Math.max(0, row.optLong("duration", row.optLong("dt", 0)))).put("fileName", filename);
+        if (row.has("cueTrackNo")) {
+            long number=row.optLong("cueTrackNo"),start=row.optLong("cueOffsetMs",-1),length=row.optLong("cueDurationMs",-1);
+            if (number<1 || number>999 || start<0 || length<=0 || start+length>Integer.MAX_VALUE) throw new IOException("CUE 备份资料无效");
+            result.put("cueTrackNo",number).put("cueOffsetMs",start).put("cueDurationMs",length);
+        }
         long remote = row.optLong("neteaseId");
         boolean online = row.optBoolean("onlineOnly");
         if (online && remote == 0) remote = row.optLong("id");
@@ -61,6 +73,11 @@ final class LibraryBackup {
         return digest(value.toString());
     }
     private static boolean validPreference(String pref, String key, Object value) {
+        if ("playback_tuning".equals(pref)) {
+            if ("prefetchWifi".equals(key)) return value instanceof Boolean;
+            return ("speed".equals(key) || "pitch".equals(key)) && value instanceof Number
+                    && Double.isFinite(((Number)value).doubleValue()) && ((Number)value).doubleValue()>=.5 && ((Number)value).doubleValue()<=2;
+        }
         if ("playback_volume".equals(pref)) return key.matches("track:id:[1-9][0-9]*|track:local:[a-f0-9]{64}|playlist:key:[a-f0-9]{64}") && value instanceof Number && ((Number) value).doubleValue() == ((Number) value).intValue() && ((Number) value).intValue() >= 0 && ((Number) value).intValue() <= 100;
         if ("lyric_overlay".equals(pref)) {
             if (LYRIC_BOOLEANS.contains(key)) return value instanceof Boolean;
@@ -86,7 +103,15 @@ final class LibraryBackup {
         }
         return result;
     }
-    private static JSONObject load(Context c) throws Exception { return file(c).isFile() ? read(new FileInputStream(file(c))) : new JSONObject().put("collections", new JSONArray()); }
+    private static JSONObject load(Context c) throws Exception { return file(c).isFile() ? readStore(new FileInputStream(file(c))) : new JSONObject().put("collections", new JSONArray()); }
+    static byte[] storeBytes(JSONObject data) throws Exception {
+        byte[] bytes=data.toString().getBytes(StandardCharsets.UTF_8);
+        checkStoreSize(bytes.length);
+        return bytes;
+    }
+    static void checkStoreSize(long length) throws IOException {
+        if(length>MAX_STORE_BYTES) throw new IOException("合并后的恢复资料超过 64 MiB，本次未写入，请精简导入资料");
+    }
     private static JSONArray allTracks(Context c) throws Exception {
         JSONArray result = LocalTrackStore.loadFolderIndex(c);
         for (JSONArray source : new JSONArray[]{LocalTrackStore.load(c), LocalPlaylistStore.tracks(new File(c.getFilesDir(), "local-bundles"))})
@@ -112,7 +137,7 @@ final class LibraryBackup {
         Map<String, Map<String, JSONObject>> matches = new HashMap<>();
         for (int i = 0; i < source.length(); i++) {
             JSONObject row = source.getJSONObject(i); String uri = LocalLibraryIds.uri(row); if (uri.isEmpty()) continue;
-            matches.computeIfAbsent(fingerprint(row), ignored -> new HashMap<>()).put(uri, row);
+            matches.computeIfAbsent(fingerprint(row), ignored -> new HashMap<>()).put(uri+PlaybackSegment.suffix(row), row);
         }
         for (int i = 0; i < saved.length(); i++) {
             JSONObject data = saved.getJSONObject(i); String key = data.getString("key");
@@ -122,6 +147,7 @@ final class LibraryBackup {
             if (row.length() == 0) row.put("id", online ? data.getLong("neteaseId") : Math.max(1L, Math.abs((long) (id + key).hashCode())))
                     .put("name", data.getString("name")).put("artists", data.getJSONArray("artists")).put("album", data.getString("album"))
                     .put("duration", data.getLong("duration")).put("localFileName", data.optString("fileName"));
+            if (data.has("cueTrackNo")) for (String field : new String[]{"cueTrackNo","cueOffsetMs","cueDurationMs"}) row.put(field,data.getLong(field));
             row.remove("localFolderId"); row.remove("trackVolumeKey");
             row.put("localPlaylistId", id).put("localEntryKey", key).put("missingLocal", !online && LocalLibraryIds.uri(row).isEmpty());
             if (row.optBoolean("missingLocal")) row.put("volume", data.optInt("volume", 100)).put("lyricOffsetMs", data.optLong("lyricOffsetMs"));
@@ -207,24 +233,39 @@ final class LibraryBackup {
         return new JSONObject().put("collections", safe).put("frontend", safeFrontend(input.optJSONObject("frontend") == null ? new JSONObject() : input.getJSONObject("frontend")))
                 .put("settings", safePreferences(input.optJSONObject("settings") == null ? new JSONObject() : input.getJSONObject("settings")));
     }
-    static JSONObject restore(Context c, JSONObject input) throws Exception {
-        JSONObject safe = validate(input), existing = load(c), orders = new JSONObject(); JSONArray collections = existing.getJSONArray("collections"), incoming = safe.getJSONArray("collections");
+    static final class RestorePlan {
+        final JSONObject document,safe,orders;
+        final List<JSONObject> added;
+        final byte[] encoded;
+        RestorePlan(JSONObject document,JSONObject safe,JSONObject orders,List<JSONObject> added,byte[] encoded) {
+            this.document=document;this.safe=safe;this.orders=orders;this.added=added;this.encoded=encoded;
+        }
+    }
+    static RestorePlan planRestore(JSONObject previous,JSONObject input) throws Exception {
+        JSONObject safe = validate(input), existing = new JSONObject(previous.toString()), orders = new JSONObject(); JSONArray collections = existing.getJSONArray("collections"), incoming = safe.getJSONArray("collections");
+        List<JSONObject> added=new ArrayList<>();
         Set<String> hashes = new HashSet<>(); for (int i = 0; i < collections.length(); i++) hashes.add(collections.getJSONObject(i).optString("backupKey"));
         for (int i = 0; i < incoming.length(); i++) {
             JSONObject item = incoming.getJSONObject(i); String hash = digest(item.toString()); if (!hashes.add(hash)) continue;
             String id = "restored:" + UUID.randomUUID(); item.put("id", id).put("backupKey", hash); collections.put(item);
-            PlaybackVolume.setPlaylistPercent(c, id, item.getInt("volume"));
+            added.add(item);
             JSONArray keys = new JSONArray(), tracks = item.getJSONArray("tracks");
             for (int j = 0; j < tracks.length(); j++) keys.put(LocalLibraryIds.key(new JSONObject().put("localPlaylistId", id).put("localEntryKey", tracks.getJSONObject(j).getString("key"))));
             orders.put(id, new JSONObject().put("mode", item.getString("sortMode")).put("keys", keys));
         }
-        LibraryFiles.writeJson(file(c), existing);
-        JSONObject settings = safe.getJSONObject("settings");
+        return new RestorePlan(existing,safe,orders,added,storeBytes(existing));
+    }
+    static JSONObject restore(Context c, JSONObject input) throws Exception {
+        RestorePlan plan=planRestore(load(c),input);
+        LibraryFiles.writeBytes(file(c),plan.encoded);
+        for(JSONObject item:plan.added) PlaybackVolume.setPlaylistPercent(c,item.getString("id"),item.getInt("volume"));
+        JSONObject settings = plan.safe.getJSONObject("settings");
         for (String pref : PREFS) {
             SharedPreferences.Editor editor = c.getSharedPreferences(pref, Context.MODE_PRIVATE).edit(); JSONObject values = settings.getJSONObject(pref);
             for (Iterator<String> i = values.keys(); i.hasNext();) {
                 String key = i.next(); Object value = values.get(key);
                 if (value instanceof Boolean) editor.putBoolean(key, (Boolean) value);
+                else if ("playback_tuning".equals(pref)) editor.putFloat(key,((Number)value).floatValue());
                 else if (key.equals("capacity_mib") || key.startsWith("lyric_offset_ms_")) editor.putLong(key, ((Number) value).longValue());
                 else editor.putInt(key, ((Number) value).intValue());
             }
@@ -235,7 +276,8 @@ final class LibraryBackup {
         SharedPreferences artwork = c.getSharedPreferences("artwork_cache_settings", Context.MODE_PRIVATE);
         if (artwork.contains("capacity_mib")) ArtworkCache.setCapacityMiB(c, artwork.getLong("capacity_mib", 128));
         AndroidLyricOverlayService.refreshSettings(); AndroidPlaybackService.onVolumeSettingsChanged(c);
-        return new JSONObject().put("frontend", safe.getJSONObject("frontend")).put("orders", orders).put("collectionCount", collections.length());
+        AndroidPlaybackService.onPlaybackTuningChanged(c,() -> {});
+        return new JSONObject().put("frontend", plan.safe.getJSONObject("frontend")).put("orders", plan.orders).put("collectionCount", plan.document.getJSONArray("collections").length());
     }
     static void remove(Context c, String id, String entry) throws Exception {
         JSONObject data = load(c); JSONArray kept = new JSONArray(), collections = data.getJSONArray("collections"); boolean found = false;

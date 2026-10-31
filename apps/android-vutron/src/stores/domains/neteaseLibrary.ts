@@ -49,7 +49,7 @@ export function createNeteaseLibrary(options: Options) {
   function isTrackLiked(track: VutronTrack) { return likedLoaded.value && liked.value.has(onlineTrackId(track)) }
   function removableOnlinePlaylist(track: VutronTrack) {
     const playlist = options.selectedPlaylist.value
-    return canManageOnlinePlaylist(playlist) && onlineTrackId(track) > 0 && track.playlistVolumeKey === 'netease:' + playlist!.id
+    return !playlist?.offlineSnapshot && canManageOnlinePlaylist(playlist) && onlineTrackId(track) > 0 && track.playlistVolumeKey === 'netease:' + playlist!.id
       && options.tracks.value.some(item => onlineTrackId(item) === onlineTrackId(track)) ? playlist : undefined
   }
   function onlineFailure(cause: unknown) {

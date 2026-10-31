@@ -359,6 +359,7 @@ test('version availability and presentation compare numeric segments and expose 
   assert.equal(presentation.isNewerAppVersion('1.0.10-beta', '1.0.9'), false)
   assert.equal(presentation.isNewerAppVersion(undefined, '1.0.9'), false)
   assert.equal(presentation.appUpdateSummary(defaultState({ status: 'upToDate' })), '当前已是最新版本')
+  assert.match(presentation.appUpdateSummary(defaultState({ status: 'noRelease' })), /新仓库尚未发布/)
   assert.equal(presentation.appUpdateSummary(defaultState({ status: 'downloading', progress: 42.6 })),
     '正在下载更新 · 43%')
   assert.equal(presentation.appUpdateActionLabel(defaultState({ status: 'ready' })), '安装更新')
@@ -375,6 +376,8 @@ test('settings renders the default-off control and the existing downloaded APK c
   assert.match(html, /默认关闭/)
   assert.match(html, /继续安装/)
   assert.match(html, /检查更新/)
+  assert.match(html, /https:\/\/github[.]com\/EBG-bg\/VutronMusic-Android\/releases/)
+  assert.match(html, /仅从新仓库检查和下载/)
   assert.match(html, /&lt;img src=x onerror=alert\(1\)&gt;/)
   assert.equal(html.includes('<img src=x'), false)
   f.controller.disposeAppUpdates()

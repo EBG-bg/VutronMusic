@@ -57,4 +57,24 @@ public class PlaylistCacheIndexTest {
         assertFalse(PlaylistCache.validTrackSnapshot(empty, 123, 10));
         assertFalse(PlaylistCache.validTrackSnapshot(new JSONObject().put("userId", 123).put("playlistId", 9).put("tracks", "invalid"), 123, 9));
     }
+    @Test public void deletedOfflinePlaylistStaysHiddenAfterRestartAndAnOnlineListRefresh() throws Exception {
+        JSONObject document = new JSONObject().put("playlists",new JSONArray().put(playlist(1,"One")).put(playlist(2,"Two")))
+                .put("visitedPlaylists",new JSONArray().put(playlist(1,"Visited"))).put("unrelated","retained");
+        PlaylistCache.exclude(document,1,true);
+        JSONObject restarted = new JSONObject(document.toString());
+        restarted.put("playlists",new JSONArray().put(playlist(1,"Refreshed")).put(playlist(2,"Two")));
+        JSONArray visible = PlaylistCache.visiblePlaylists(restarted);
+        assertEquals(1,visible.length()); assertEquals(2,visible.getJSONObject(0).getLong("id"));
+        assertTrue(PlaylistCache.excluded(restarted,1)); assertEquals("retained",restarted.getString("unrelated"));
+        PlaylistCache.exclude(restarted,1,false);
+        assertEquals(2,PlaylistCache.visiblePlaylists(new JSONObject(restarted.toString())).length());
+    }
+    @Test public void exclusionIsIdempotentAndDoesNotRemoveAnotherPlaylistOrItsTrackReferences() throws Exception {
+        JSONObject document = new JSONObject().put("tracks",new JSONObject().put("7",new JSONArray().put(91)));
+        PlaylistCache.exclude(document,7,true); PlaylistCache.exclude(document,7,true); PlaylistCache.exclude(document,8,true);
+        assertEquals(2,document.getJSONArray("excludedPlaylistIds").length());
+        PlaylistCache.exclude(document,7,false);
+        assertFalse(PlaylistCache.excluded(document,7)); assertTrue(PlaylistCache.excluded(document,8));
+        assertEquals(91,document.getJSONObject("tracks").getJSONArray("7").getLong(0));
+    }
 }

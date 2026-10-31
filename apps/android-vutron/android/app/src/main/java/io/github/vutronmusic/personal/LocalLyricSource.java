@@ -27,6 +27,8 @@ final class LocalLyricSource {
 
     static LyricRepository.Lyrics load(Context context, JSONObject song) {
         if (song == null) return null;
+        // Album sidecars have absolute time; do not present them as per-track lyrics.
+        if (song.optInt("cueTrackNo") > 0) return null;
         String source = song.optString("localUri", "");
         if (source.isEmpty()) source = song.optString("localPath", "");
         if (source.isEmpty() || song.optBoolean("cached") || "cache".equals(song.optString("source"))) return null;

@@ -20,7 +20,7 @@ class DesktopExportTest(unittest.TestCase):
         self.a.write_bytes(b"original-a"); self.b.write_bytes(b"original-b")
     def test_current_schema_preserves_entry_order_and_originals_without_exporting_private_data(self):
         with sqlite3.connect(self.db) as db:
-            db.executescript((ROOT / "src/public/migrations/plugin.sql").read_text(encoding="utf-8"))
+            db.executescript((ROOT / "tools/tests/fixtures/desktop-plugin.sql").read_text(encoding="utf-8"))
             db.execute("INSERT INTO Playlist(id,pluginId,name,createTime,updateTime) VALUES('p','local','Playlist',1,1)")
             db.execute("INSERT INTO AppData VALUES('cookie','must-not-export')")
             for ident,path in [("a",self.a),("b",self.b)]:

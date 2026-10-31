@@ -8,7 +8,7 @@ final class LocalLibraryIds {
     private LocalLibraryIds() { }
     static String uri(JSONObject row) { return row.optString("localUri", row.optString("uri", row.optString("localPath"))); }
     static String key(JSONObject row) {
-        String source = row.optString("localFolderId", row.optString("localPlaylistId")) + "\n" + (uri(row).isEmpty() || row.optString("localPlaylistId").startsWith("restored:") ? row.optString("localEntryKey") : uri(row));
+        String source = row.optString("localFolderId", row.optString("localPlaylistId")) + "\n" + (uri(row).isEmpty() || row.optString("localPlaylistId").startsWith("restored:") ? row.optString("localEntryKey") : uri(row)) + PlaybackSegment.suffix(row);
         try {
             byte[] bytes = MessageDigest.getInstance("SHA-256").digest(source.getBytes(StandardCharsets.UTF_8));
             StringBuilder result = new StringBuilder(); for (byte value : bytes) result.append(String.format(java.util.Locale.ROOT, "%02x", value & 255));
@@ -16,6 +16,7 @@ final class LocalLibraryIds {
         } catch (java.security.NoSuchAlgorithmException impossible) { throw new IllegalStateException(impossible); }
     }
     static boolean same(JSONObject a, JSONObject b) {
+        if (!PlaybackSegment.suffix(a).equals(PlaybackSegment.suffix(b))) return false;
         if (a.optString("localPlaylistId").startsWith("restored:")) return a.optString("localPlaylistId").equals(b.optString("localPlaylistId"))
                 && !a.optString("localEntryKey").isEmpty() && a.optString("localEntryKey").equals(b.optString("localEntryKey"));
         String uri = uri(a);
